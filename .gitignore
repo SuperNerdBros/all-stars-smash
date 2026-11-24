@@ -7,3 +7,4 @@ coverage/
 !.env.example
 .test-build/
 tsconfig.tsbuildinfo
+out/

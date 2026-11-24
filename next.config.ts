@@ -16,6 +16,7 @@ export default function nextConfig(phase: string): NextConfig {
     },
     // Allow access to remote image placeholder.
     images: {
+      unoptimized: process.env.STATIC_EXPORT === '1',
       remotePatterns: [
         {
           protocol: 'https',
@@ -25,7 +26,9 @@ export default function nextConfig(phase: string): NextConfig {
         },
       ],
     },
-    output: 'standalone',
+    // STATIC_EXPORT=1 builds a static site for GitHub Pages (skb.forthexp.com); online play talks to the
+    // play-api Worker (skb-api.forthexp.com), so no Node server is needed.
+    output: process.env.STATIC_EXPORT === '1' ? 'export' : 'standalone',
     transpilePackages: ['motion'],
     webpack: (config, {dev}) => {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
