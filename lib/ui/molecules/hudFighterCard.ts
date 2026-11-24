@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import type { FighterBlueprint } from '../../types/fighter';
+import type { FighterBlueprint, GraphicsEra } from '../../types/fighter';
 import type { HudFighterSnapshot } from '../../types/protocol';
+import { resolveFighterForEra } from '../../roster/eraResolver';
 import { SpriteCanvas } from '../atoms/spriteCanvas';
 
 export interface HudFighterCardProps {
   snapshot: HudFighterSnapshot;
   fighter: FighterBlueprint;
+  graphicsEra: GraphicsEra;
   controlLabel: string;
 }
 
@@ -17,12 +19,14 @@ export interface HudFighterCardProps {
  * stock head pips, shield gauge, and oversized shaking damage percentage readout.
  */
 export function HudFighterCard(props: HudFighterCardProps): React.ReactElement {
-  const { snapshot, fighter, controlLabel } = props;
+  const { snapshot, fighter, graphicsEra, controlLabel } = props;
+  const resolvedFighter = resolveFighterForEra(fighter, graphicsEra);
   const isP1 = snapshot.slot === 0;
   const accentHex = isP1 ? '#EF4444' : '#3B82F6';
   const accentGlow = isP1 ? 'rgba(239, 68, 68, 0.35)' : 'rgba(59, 130, 246, 0.35)';
   const palette =
-    fighter.palettes[snapshot.paletteIndex]?.colors ?? fighter.palettes[0].colors;
+    resolvedFighter.palettes[snapshot.paletteIndex]?.colors ??
+    resolvedFighter.palettes[0].colors;
 
   const prevDamageRef = useRef<number>(snapshot.damagePct);
   const [shaking, setShaking] = useState<boolean>(false);
@@ -170,13 +174,19 @@ export function HudFighterCard(props: HudFighterCardProps): React.ReactElement {
         style: { filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.85))' },
       },
       React.createElement(SpriteCanvas, {
-        pixelChart: fighter.pixelChart,
+        pixelChart: resolvedFighter.pixelChart,
         palette,
-        animState: snapshot.isRespawning ? 'jump' : shaking ? 'hurt' : 'idle',
+        animState: resolvePortraitAnimState(snapshot.isRespawning, shaking),
         sizePx: 72,
         flipX: !isP1,
         animate: true,
       }),
     ),
   );
+}
+
+function resolvePortraitAnimState(isRespawning: boolean, shaking: boolean): 'jump' | 'hurt' | 'idle' {
+  if (isRespawning) return 'jump';
+  if (shaking) return 'hurt';
+  return 'idle';
 }

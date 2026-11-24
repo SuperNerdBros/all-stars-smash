@@ -11,6 +11,7 @@ import {
   type CpuDifficulty,
 } from '../types/protocol';
 import type { StageManifest } from '../types/stage';
+import { computeVolumeState } from './platformMotion';
 
 export interface AiFighterView {
   x: number;
@@ -35,6 +36,18 @@ export interface AiMemory {
   jumpPulseCooldown: number;
 }
 
+const CADENCE_BY_DIFF: Record<CpuDifficulty, number> = {
+  easy: 13,
+  normal: 7,
+  hard: 3,
+};
+
+const AGGRESSION_BY_DIFF: Record<CpuDifficulty, number> = {
+  easy: 0.25,
+  normal: 0.45,
+  hard: 0.68,
+};
+
 export function createAiMemory(): AiMemory {
   return {
     decisionCooldown: 0,
@@ -46,7 +59,7 @@ export function createAiMemory(): AiMemory {
 
 /**
  * Generates a standard 16-bit input bitmask for CPU fighters with off-stage recovery,
- * wall-jump recovery, spacing, kill-confirm smash checks, and difficulty-scaled timing.
+ * moving-stage awareness, wall-jump recovery, spacing, and kill-confirm smash checks.
  */
 export function computeCpuInputMask(
   self: AiFighterView,
@@ -63,21 +76,21 @@ export function computeCpuInputMask(
   if (mem.attackCooldown > 0) mem.attackCooldown--;
   if (mem.jumpPulseCooldown > 0) mem.jumpPulseCooldown--;
 
-  // Determine safe horizontal stage span from solid volumes
   let safeMinX = -95;
   let safeMaxX = 95;
   let mainTopY = 42;
   for (const vol of stage.volumes) {
     if (!vol.passThrough && !vol.decorative) {
-      safeMinX = Math.min(safeMinX, vol.x - vol.width * 0.5 + 10);
-      safeMaxX = Math.max(safeMaxX, vol.x + vol.width * 0.5 - 10);
-      mainTopY = Math.min(mainTopY, vol.topY);
+      const pose = computeVolumeState(vol, tick);
+      if (!pose.solidActive) continue;
+      safeMinX = Math.min(safeMinX, pose.x - vol.width * 0.5 + 10);
+      safeMaxX = Math.max(safeMaxX, pose.x + vol.width * 0.5 - 10);
+      mainTopY = Math.min(mainTopY, pose.topY);
     }
   }
 
   let mask = 0;
 
-  // Immediate wall-jump recovery when clinging to a stage wall
   if (self.wallClingDir !== 0 && mem.jumpPulseCooldown === 0) {
     mask |= INPUT_JUMP;
     mask |= self.x < 0 ? INPUT_RIGHT : INPUT_LEFT;
@@ -85,7 +98,6 @@ export function computeCpuInputMask(
     return mask;
   }
 
-  // 1. Priority #1: Off-stage recovery!
   const offLeft = self.x < safeMinX - 8;
   const offRight = self.x > safeMaxX + 8;
   const belowStage = self.y > mainTopY + 12;
@@ -105,8 +117,7 @@ export function computeCpuInputMask(
     return mask;
   }
 
-  // Throttle non-recovery decisions slightly by difficulty
-  const cadence = difficulty === 'hard' ? 3 : difficulty === 'normal' ? 7 : 13;
+  const cadence = CADENCE_BY_DIFF[difficulty];
   if (mem.decisionCooldown > 0) {
     mem.decisionCooldown--;
     return mem.cachedMask & (INPUT_LEFT | INPUT_RIGHT | INPUT_SHIELD);
@@ -118,32 +129,25 @@ export function computeCpuInputMask(
   const absX = Math.abs(dx);
   const absY = Math.abs(dy);
 
-  // Move toward opponent (or maintain ideal zoner spacing slightly)
   if (absX > 22) {
     mask |= dx > 0 ? INPUT_RIGHT : INPUT_LEFT;
   } else if (absX < 10 && target.moveState !== null && difficulty !== 'easy') {
     mask |= INPUT_SHIELD;
   }
 
-  // Navigate upward to platforms if opponent is above
   if (dy < -24 && self.grounded && mem.jumpPulseCooldown === 0) {
     mask |= INPUT_JUMP;
     mem.jumpPulseCooldown = 18;
   } else if (dy > 28 && self.grounded && absX < 55) {
-    // Drop through pass-through platform
     mask |= INPUT_DOWN;
   }
 
-  // Combat decisions
   if (mem.attackCooldown === 0 && !target.isRespawning) {
-    const aggression =
-      difficulty === 'hard' ? 0.68 : difficulty === 'normal' ? 0.45 : 0.25;
+    const aggression = AGGRESSION_BY_DIFF[difficulty];
     const pseudoRand = ((tick * 1103515245 + 12345) & 0x7fff) / 0x7fff;
 
     if (absX < 34 && absY < 26 && pseudoRand < aggression) {
-      // Face target before attacking
       mask |= dx >= 0 ? INPUT_RIGHT : INPUT_LEFT;
-
       if (!self.grounded) {
         mask |= INPUT_ATTACK;
         mem.attackCooldown = difficulty === 'hard' ? 14 : 22;
@@ -155,7 +159,6 @@ export function computeCpuInputMask(
         mem.attackCooldown = difficulty === 'hard' ? 12 : 22;
       }
     } else if (absX >= 58 && absX < 155 && absY < 28 && pseudoRand < aggression * 0.35) {
-      // Fire neutral special projectile or gap-closer
       mask |= dx >= 0 ? INPUT_RIGHT : INPUT_LEFT;
       mask |= INPUT_SPECIAL;
       mem.attackCooldown = difficulty === 'hard' ? 32 : 52;

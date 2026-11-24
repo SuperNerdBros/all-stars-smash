@@ -6,6 +6,39 @@ export type StagePattern =
   | 'cloud-deck'
   | 'wood-bridge';
 
+export type PlatformMotionKind =
+  | 'horizontal'
+  | 'vertical'
+  | 'orbit'
+  | 'pendulum'
+  | 'elevator';
+
+export interface PlatformMotion {
+  kind: PlatformMotionKind;
+  ampX: number;
+  ampY: number;
+  speed: number;
+  phase?: number;
+}
+
+export type SurfaceEffect =
+  | 'normal'
+  | 'spring'
+  | 'conveyor-right'
+  | 'conveyor-left'
+  | 'ice'
+  | 'phase-blink';
+
+export type StageVfxKind =
+  | 'none'
+  | 'embers'
+  | 'snow'
+  | 'petals'
+  | 'rain'
+  | 'speedlines'
+  | 'stars'
+  | 'bubbles';
+
 export interface SpriteStackVolume {
   id: string;
   /** World X center on 2D combat plane */
@@ -25,6 +58,12 @@ export interface SpriteStackVolume {
   midColor: string;
   sideColor: string;
   trimColor: string;
+  motion?: PlatformMotion;
+  surfaceEffect?: SurfaceEffect;
+  conveyorSpeed?: number;
+  springPower?: number;
+  blinkPeriod?: number;
+  blinkPhase?: number;
 }
 
 export interface BlastZones {
@@ -56,8 +95,15 @@ export interface CloudConfig {
 export interface StageManifest {
   id: string;
   name: string;
+  series: string;
   layoutTag: string;
   description: string;
+  ostTitle: string;
+  ostTrackIndex: number;
+  soundCloudUrl: string;
+  backdropImage: string;
+  vfx: StageVfxKind;
+  gravityScale?: number;
   sky: SkyPalette;
   clouds: CloudConfig;
   blastZones: BlastZones;

@@ -14,6 +14,7 @@ import {
 export interface InputPollerHandlers {
   onInputs: (p1Mask: number, p2Mask: number) => void;
   onCameraHotkey: (preset: CameraPreset) => void;
+  onToggleEra?: () => void;
   onToggleHitbox: () => void;
   onTogglePause: () => void;
 }
@@ -80,6 +81,10 @@ export class MainThreadInputPoller {
       }
       if (e.code === 'Digit4') {
         this.handlers.onCameraHotkey('THIRD_PERSON');
+        return;
+      }
+      if (e.code === 'KeyE') {
+        this.handlers.onToggleEra?.();
         return;
       }
       if (e.code === 'KeyH') {

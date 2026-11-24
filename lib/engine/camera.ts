@@ -135,7 +135,7 @@ export function stepCameraRig(
     }
   }
 
-  // Smooth exponential damping (frame-locked 60Hz) — zero hard cuts
+  // Smooth exponential damping (frame-locked 60Hz) - zero hard cuts
   const angleLerp = 0.085;
   const posLerp = 0.1;
   const zoomLerp = 0.08;
@@ -186,7 +186,7 @@ export function projectPoint(
   const cosP = Math.cos(pitch);
   const sinP = Math.sin(pitch);
 
-  // Rotate around X axis (pitch — looking downward from above onto stage)
+  // Rotate around X axis (pitch - looking downward from above onto stage)
   const y2 = ry * cosP + z1 * sinP;
   const z2 = -ry * sinP + z1 * cosP;
 

@@ -2,17 +2,68 @@
 
 import React, { useEffect, useRef } from 'react';
 import type { StageManifest } from '../../types/stage';
-import { createCameraRig, projectPoint, VIRTUAL_HEIGHT, VIRTUAL_WIDTH } from '../../engine/camera';
-import { bakeStageSlices } from '../../engine/stageBaker';
+import { createCameraRig, projectPoint, VIRTUAL_HEIGHT, VIRTUAL_WIDTH, type CameraRig } from '../../engine/camera';
+import { bakeStageSlices, type BakedStageCache } from '../../engine/stageBaker';
+import { drawAmbientStageVfx, drawStageBackdrop } from '../../engine/ambientVfx';
+import { computeVolumeState } from '../../engine/platformMotion';
 
 export interface StagePreviewCanvasProps {
   stage: StageManifest;
   className?: string;
 }
 
+function drawAnimatedStagePreview(
+  ctx: CanvasRenderingContext2D,
+  stage: StageManifest,
+  cache: BakedStageCache,
+  cam: CameraRig,
+  tick: number,
+  bgImg: HTMLImageElement | null,
+): void {
+  drawStageBackdrop(ctx, stage, cam, tick, bgImg);
+  drawAmbientStageVfx(ctx, stage.vfx, tick);
+
+  const yawRad = (cam.yawDeg * Math.PI) / 180;
+  const pitchRad = (cam.pitchDeg * Math.PI) / 180;
+  const cosY = Math.cos(yawRad);
+  const sinY = Math.sin(yawRad);
+  const sinP = Math.sin(pitchRad);
+
+  const drawList: Array<{ depth: number; draw: () => void }> = [];
+
+  for (const bakedVol of cache.volumes) {
+    const vol = bakedVol.volume;
+    const pose = computeVolumeState(vol, tick);
+    const count = bakedVol.sliceBitmaps.length;
+
+    for (let i = 0; i < count; i++) {
+      const t = count > 1 ? i / (count - 1) : 1;
+      const sliceY = pose.topY + vol.height * (1 - t);
+      const center = projectPoint(cam, pose.x, sliceY, vol.z);
+      const surf = bakedVol.sliceBitmaps[i];
+      const scale = center.scale;
+
+      drawList.push({
+        depth: center.depth + i * 0.02,
+        draw: () => {
+          ctx.save();
+          if (pose.alpha < 1) ctx.globalAlpha = pose.alpha;
+          ctx.translate(Math.round(center.sx), Math.round(center.sy));
+          ctx.transform(cosY * scale, -sinY * sinP * scale, sinY * scale, cosY * sinP * scale, 0, 0);
+          ctx.drawImage(surf as CanvasImageSource, -surf.width * 0.5, -surf.height * 0.5);
+          ctx.restore();
+        },
+      });
+    }
+  }
+
+  drawList.sort((a, b) => a.depth - b.depth);
+  for (const item of drawList) item.draw();
+}
+
 /**
- * Renders a crisp live 2.5D isometric thumbnail of any StageManifest using
- * the exact same sprite-stacking pre-baker and camera projection math as gameplay.
+ * Renders a live animated 2.5D isometric preview of any StageManifest, showing
+ * the rendered pixel-art backdrop, ambient VFX, moving platforms, and phase blocks.
  */
 export function StagePreviewCanvas(props: StagePreviewCanvasProps): React.ReactElement {
   const { stage, className = '' } = props;
@@ -28,64 +79,36 @@ export function StagePreviewCanvas(props: StagePreviewCanvasProps): React.ReactE
     ctx.imageSmoothingEnabled = false;
 
     const cam = createCameraRig('ISOMETRIC');
-    cam.zoom = 1.05;
+    cam.zoom = 1.04;
     cam.focalY = 12;
 
     const cache = bakeStageSlices(stage);
+    let loadedImg: HTMLImageElement | null = null;
+    let isActive = true;
+    let tick = 0;
+    let rafId = 0;
 
-    // Sky bands
-    const bands = 10;
-    const bandH = Math.ceil(VIRTUAL_HEIGHT / bands);
-    for (let i = 0; i < bands; i++) {
-      const t = i / (bands - 1);
-      ctx.fillStyle = t < 0.45 ? stage.sky.zenith : t < 0.8 ? stage.sky.mid : stage.sky.horizon;
-      ctx.fillRect(0, i * bandH, VIRTUAL_WIDTH, bandH);
-    }
+    const img = new Image();
+    img.referrerPolicy = 'no-referrer';
+    img.onload = () => {
+      if (isActive) loadedImg = img;
+    };
+    img.src = stage.backdropImage;
 
-    if (stage.sky.starColor) {
-      ctx.fillStyle = stage.sky.starColor;
-      for (let i = 0; i < 32; i++) {
-        ctx.fillRect((i * 83) % VIRTUAL_WIDTH, (i * 41) % 160, i % 4 === 0 ? 2 : 1, i % 4 === 0 ? 2 : 1);
-      }
-    }
-    if (stage.sky.sunColor) {
-      ctx.fillStyle = stage.sky.sunColor;
-      ctx.fillRect(360, 34, 24, 24);
-    }
+    const loop = () => {
+      if (!isActive) return;
+      tick++;
+      cam.yawDeg = 26 + Math.sin(tick * 0.012) * 5;
+      drawAnimatedStagePreview(ctx, stage, cache, cam, tick, loadedImg);
+      rafId = window.requestAnimationFrame(loop);
+    };
 
-    // Painter-sorted pre-baked sprite stacks
-    const yawRad = (cam.yawDeg * Math.PI) / 180;
-    const pitchRad = (cam.pitchDeg * Math.PI) / 180;
-    const cosY = Math.cos(yawRad);
-    const sinY = Math.sin(yawRad);
-    const sinP = Math.sin(pitchRad);
+    rafId = window.requestAnimationFrame(loop);
 
-    const drawList: Array<{ depth: number; draw: () => void }> = [];
-
-    for (const bakedVol of cache.volumes) {
-      const vol = bakedVol.volume;
-      const count = bakedVol.sliceBitmaps.length;
-      for (let i = 0; i < count; i++) {
-        const t = count > 1 ? i / (count - 1) : 1;
-        const sliceY = vol.topY + vol.height * (1 - t);
-        const center = projectPoint(cam, vol.x, sliceY, vol.z);
-        const surf = bakedVol.sliceBitmaps[i];
-        const scale = center.scale;
-        drawList.push({
-          depth: center.depth + i * 0.02,
-          draw: () => {
-            ctx.save();
-            ctx.translate(Math.round(center.sx), Math.round(center.sy));
-            ctx.transform(cosY * scale, -sinY * sinP * scale, sinY * scale, cosY * sinP * scale, 0, 0);
-            ctx.drawImage(surf as CanvasImageSource, -surf.width * 0.5, -surf.height * 0.5);
-            ctx.restore();
-          },
-        });
-      }
-    }
-
-    drawList.sort((a, b) => a.depth - b.depth);
-    for (const item of drawList) item.draw();
+    return () => {
+      isActive = false;
+      window.cancelAnimationFrame(rafId);
+    };
   }, [stage]);
 
   return React.createElement('canvas', {

@@ -1,12 +1,21 @@
 import type { StageManifest } from '../types/stage';
+import { STAGE_BACKDROPS } from '../engine/backdropLoader';
+import { EXTRA_20_STAGES } from './extraStages';
+import { WILD_12_STAGES } from './wildStages';
 
-export const STAGE_MANIFESTS: StageManifest[] = [
+const CORE_STAGES: StageManifest[] = [
   {
     id: 'sky-citadel',
     name: 'Sky Citadel',
+    series: 'Smash Originals',
     layoutTag: 'Tri-Platform · Classic',
     description:
       'Floating emerald-and-stone bastion with three pass-through sky decks and drifting voxel cloud strata.',
+    ostTitle: 'Battlefield - SSBU OST',
+    ostTrackIndex: 1,
+    soundCloudUrl: 'https://soundcloud.com/ssbu-ost/battlefield',
+    backdropImage: STAGE_BACKDROPS.kingdom,
+    vfx: 'petals',
     sky: {
       zenith: '#142952',
       mid: '#29579A',
@@ -120,9 +129,15 @@ export const STAGE_MANIFESTS: StageManifest[] = [
   {
     id: 'starlight-altar',
     name: 'Starlight Altar',
+    series: 'Smash Originals',
     layoutTag: 'Flat Stage · Competitive',
     description:
       'Pure flat obsidian-and-gold monolith suspended above a retro nebula with flanking crystal pylons.',
+    ostTitle: 'Final Destination - SSBU OST',
+    ostTrackIndex: 2,
+    soundCloudUrl: 'https://soundcloud.com/ssbu-ost/final-destination',
+    backdropImage: STAGE_BACKDROPS.cosmos,
+    vfx: 'stars',
     sky: {
       zenith: '#070A18',
       mid: '#14193B',
@@ -222,9 +237,15 @@ export const STAGE_MANIFESTS: StageManifest[] = [
   {
     id: 'twin-bastion',
     name: 'Twin Bastion',
-    layoutTag: 'Dual-Tier · Asymmetric',
+    series: 'Smash Originals',
+    layoutTag: 'Dual-Tier · Moving Lift',
     description:
-      'Split fortress towers linked by a central drop-through timber bridge over a twilight canyon sky.',
+      'Split fortress towers linked by a vertical elevator timber bridge over a twilight canyon sky.',
+    ostTitle: 'Lifelight - SSBU OST',
+    ostTrackIndex: 22,
+    soundCloudUrl: 'https://soundcloud.com/ssbu-ost/lifelight',
+    backdropImage: STAGE_BACKDROPS.gothic,
+    vfx: 'embers',
     sky: {
       zenith: '#21132B',
       mid: '#6B2447',
@@ -287,13 +308,14 @@ export const STAGE_MANIFESTS: StageManifest[] = [
       {
         id: 'center-bridge',
         x: 0,
-        topY: 36,
+        topY: 22,
         z: 0,
         width: 66,
         height: 10,
         depth: 36,
         slices: 4,
         passThrough: true,
+        motion: { kind: 'elevator', ampX: 0, ampY: 18, speed: 0.022 },
         pattern: 'wood-bridge',
         topColor: '#D99B58',
         midColor: '#925426',
@@ -326,6 +348,7 @@ export const STAGE_MANIFESTS: StageManifest[] = [
         depth: 26,
         slices: 4,
         passThrough: true,
+        motion: { kind: 'horizontal', ampX: 28, ampY: 0, speed: 0.018 },
         pattern: 'wood-bridge',
         topColor: '#E8B872',
         midColor: '#9A5A2A',
@@ -334,6 +357,12 @@ export const STAGE_MANIFESTS: StageManifest[] = [
       },
     ],
   },
+];
+
+export const STAGE_MANIFESTS: StageManifest[] = [
+  ...CORE_STAGES,
+  ...EXTRA_20_STAGES,
+  ...WILD_12_STAGES,
 ];
 
 export function getStageById(id: string): StageManifest {

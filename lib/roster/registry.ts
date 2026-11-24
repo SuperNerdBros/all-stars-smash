@@ -1,10 +1,20 @@
 import type { ArchetypeId, FighterBlueprint } from '../types/fighter';
 import { MARIO_BLUEPRINT } from './fighters/mario';
-import { LUIGI_BLUEPRINT } from './fighters/luigi';
+import { DONKEY_KONG_BLUEPRINT } from './fighters/donkeyKong';
 import { LINK_BLUEPRINT } from './fighters/link';
+import { SAMUS_BLUEPRINT } from './fighters/samus';
+import { KIRBY_BLUEPRINT } from './fighters/kirby';
+import { LUIGI_BLUEPRINT } from './fighters/luigi';
+import { BOWSER_BLUEPRINT } from './fighters/bowser';
 import { MEGAMAN_BLUEPRINT } from './fighters/megaman';
 import { SONIC_BLUEPRINT } from './fighters/sonic';
-import { SAMUS_BLUEPRINT } from './fighters/samus';
+import { SIMON_BLUEPRINT } from './fighters/simon';
+import { RYU_HAYABUSA_BLUEPRINT } from './fighters/ryuHayabusa';
+import { PIT_BLUEPRINT } from './fighters/pit';
+import { LITTLE_MAC_BLUEPRINT } from './fighters/littleMac';
+import { CHRONO_GANG_FIGHTERS } from './fighters/chronoGang';
+import { CRYSTAL_45_FIGHTERS } from './fighters/crystalFourFive';
+import { CRYSTAL_6_FIGHTERS } from './fighters/crystalSix';
 import { clonePixelChart } from './chartParser';
 import {
   packFighterForStorage,
@@ -12,15 +22,29 @@ import {
   type PackedFighterRecord,
 } from './nibbleCodec';
 
-const STORAGE_KEY = 'pixel_brawl_25d_custom_fighters_v1';
+const STORAGE_KEY = 'pixel_brawl_25d_custom_fighters_v3';
 
+/**
+ * Full 23-character retro cast (13 NES/SEGA classics + 4 Time Trigger + 6 Crystal IV-VI).
+ * Paired with the '?' Random tile on Character Select for an exact 8x3 (24-tile) Smash mosaic!
+ */
 export const BUILTIN_FIGHTERS: readonly FighterBlueprint[] = [
   MARIO_BLUEPRINT,
-  LUIGI_BLUEPRINT,
+  DONKEY_KONG_BLUEPRINT,
   LINK_BLUEPRINT,
+  SAMUS_BLUEPRINT,
+  KIRBY_BLUEPRINT,
+  LUIGI_BLUEPRINT,
+  BOWSER_BLUEPRINT,
   MEGAMAN_BLUEPRINT,
   SONIC_BLUEPRINT,
-  SAMUS_BLUEPRINT,
+  SIMON_BLUEPRINT,
+  RYU_HAYABUSA_BLUEPRINT,
+  PIT_BLUEPRINT,
+  LITTLE_MAC_BLUEPRINT,
+  ...CHRONO_GANG_FIGHTERS,
+  ...CRYSTAL_45_FIGHTERS,
+  ...CRYSTAL_6_FIGHTERS,
 ];
 
 export function cloneFighterBlueprint(src: FighterBlueprint): FighterBlueprint {
@@ -28,6 +52,24 @@ export function cloneFighterBlueprint(src: FighterBlueprint): FighterBlueprint {
     ...src,
     palettes: src.palettes.map((p) => ({ name: p.name, colors: [...p.colors] })),
     pixelChart: clonePixelChart(src.pixelChart),
+    eraPacks: src.eraPacks
+      ? {
+          NES: {
+            pixelChart: clonePixelChart(src.eraPacks.NES.pixelChart),
+            palettes: src.eraPacks.NES.palettes.map((p) => ({
+              name: p.name,
+              colors: [...p.colors],
+            })),
+          },
+          SNES_SEGA: {
+            pixelChart: clonePixelChart(src.eraPacks.SNES_SEGA.pixelChart),
+            palettes: src.eraPacks.SNES_SEGA.palettes.map((p) => ({
+              name: p.name,
+              colors: [...p.colors],
+            })),
+          },
+        }
+      : undefined,
     stats: { ...src.stats },
     moveset: {
       jab: { ...src.moveset.jab, hitbox: { ...src.moveset.jab.hitbox } },
@@ -79,7 +121,7 @@ export function loadRoster(): FighterBlueprint[] {
       }
     }
   } catch {
-    // Ignore corrupted storage and fall back cleanly to built-in roster.
+    // chemx-allow: best-effort fallback to built-in roster if localStorage data is corrupted
   }
 
   return Array.from(baseMap.values());
@@ -131,6 +173,6 @@ function persistOverrides(roster: FighterBlueprint[]): void {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(packed));
   } catch {
-    // Quota guard: fail silently rather than breaking active session.
+    // chemx-allow: best-effort quota guard so localStorage limits never break active session
   }
 }

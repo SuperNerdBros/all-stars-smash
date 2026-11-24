@@ -1,4 +1,4 @@
-import type { FighterBlueprint } from './fighter';
+import type { FighterBlueprint, GraphicsEra } from './fighter';
 import type { StageManifest } from './stage';
 
 /** 16-bit input bitmask constants shared across main thread and worker */
@@ -33,6 +33,7 @@ export interface MatchConfig {
   players: [PlayerSlotConfig, PlayerSlotConfig];
   stageId: string;
   stocks: number;
+  graphicsEra: GraphicsEra;
 }
 
 export type SfxEvent =
@@ -65,6 +66,7 @@ export interface HudFighterSnapshot {
 export interface HudSnapshot {
   fighters: [HudFighterSnapshot, HudFighterSnapshot];
   cameraPreset: CameraPreset;
+  graphicsEra: GraphicsEra;
   hitboxesVisible: boolean;
   paused: boolean;
   matchTimeTicks: number;
@@ -87,6 +89,7 @@ export type WorkerInMessage =
       cpuDifficulty: CpuDifficulty;
       stage: StageManifest;
       stocks: number;
+      graphicsEra: GraphicsEra;
     }
   | {
       type: 'INPUT_STATE';
@@ -96,6 +99,10 @@ export type WorkerInMessage =
   | {
       type: 'SET_CAMERA';
       preset: CameraPreset;
+    }
+  | {
+      type: 'SET_ERA';
+      era: GraphicsEra;
     }
   | {
       type: 'TOGGLE_HITBOX';

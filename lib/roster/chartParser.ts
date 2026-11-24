@@ -3,15 +3,21 @@ import type { AnimClip, AnimState, IndexedFrame, PixelChart } from '../types/pal
 const HEX_CHARS = '0123456789abcdef';
 
 /**
- * Parses compact 16-char or 24-char ASCII rows into a strict 2D palette-index matrix.
- * '.' or '0' maps to 0 (transparent); '1'-'9' and 'a'-'f' map to 1-15.
+ * Parses compact ASCII pixel rows (16x16 NES, 16x24, 24x24, 24x32, or 32x32 SNES)
+ * into a strict 2D palette-index matrix. '.' or '0' maps to 0; '1'-'9'/'a'-'f' map to 1-15.
  */
-export function parseFrame(rows: readonly string[], expectedSize = 16): IndexedFrame {
+export function parseFrame(
+  rows: readonly string[],
+  expectedWidth?: number,
+  expectedHeight?: number,
+): IndexedFrame {
+  const height = expectedHeight ?? (rows.length > 0 ? rows.length : 16);
+  const width = expectedWidth ?? (rows[0]?.length ? rows[0].length : height);
   const frame: IndexedFrame = [];
-  for (let y = 0; y < expectedSize; y++) {
+  for (let y = 0; y < height; y++) {
     const raw = rows[y] ?? '';
-    const line: number[] = new Array<number>(expectedSize);
-    for (let x = 0; x < expectedSize; x++) {
+    const line: number[] = new Array<number>(width);
+    for (let x = 0; x < width; x++) {
       const ch = (raw[x] ?? '.').toLowerCase();
       if (ch === '.' || ch === ' ') {
         line[x] = 0;
@@ -29,14 +35,14 @@ export function cloneFrame(frame: IndexedFrame): IndexedFrame {
   return frame.map((row) => [...row]);
 }
 
-export function createEmptyFrame(size: number): IndexedFrame {
-  return Array.from({ length: size }, () => new Array<number>(size).fill(0));
+export function createEmptyFrame(width: number, height = width): IndexedFrame {
+  return Array.from({ length: height }, () => new Array<number>(width).fill(0));
 }
 
 export function shiftFrame(frame: IndexedFrame, dx: number, dy: number): IndexedFrame {
   const h = frame.length;
   const w = frame[0]?.length ?? h;
-  const out = createEmptyFrame(h);
+  const out = createEmptyFrame(w, h);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const sx = x - dx;

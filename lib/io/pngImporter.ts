@@ -8,7 +8,7 @@ export interface PngImportOptions {
   name: string;
   cols: number;
   rows: number;
-  targetSize: 16 | 24;
+  targetSize: 16 | 24 | 32;
   magentaTolerance: number;
   archetype: ArchetypeId;
   ticksPerFrame: number;
@@ -242,12 +242,14 @@ export function quantizeImageToFighter(
     const pick = (i: number) => frames[i % total] ?? frames[0];
     for (let s = 0; s < ANIM_STATES.length; s++) {
       const st: AnimState = ANIM_STATES[s];
-      const clipFrames =
-        total >= 3 && (st === 'walk' || st === 'idle')
-          ? [pick(s), pick(s + 1), pick(s + 2)]
-          : total >= 2
-            ? [pick(s), pick(s + 1)]
-            : [pick(0)];
+      let clipFrames: IndexedFrame[];
+      if (total >= 3 && (st === 'walk' || st === 'idle')) {
+        clipFrames = [pick(s), pick(s + 1), pick(s + 2)];
+      } else if (total >= 2) {
+        clipFrames = [pick(s), pick(s + 1)];
+      } else {
+        clipFrames = [pick(0)];
+      }
       pixelChart[st] = makeClip(clipFrames, options.ticksPerFrame);
     }
   }

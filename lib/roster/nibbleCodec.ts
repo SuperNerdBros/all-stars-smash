@@ -9,7 +9,8 @@ export interface PackedAnimClip {
   frames: string[];
 }
 
-export interface PackedFighterRecord extends Omit<FighterBlueprint, 'pixelChart'> {
+export interface PackedFighterRecord
+  extends Omit<FighterBlueprint, 'pixelChart' | 'eraPacks'> {
   packedChart: Record<AnimState, PackedAnimClip>;
 }
 
@@ -91,8 +92,9 @@ export function packFighterForStorage(fighter: FighterBlueprint): PackedFighterR
       frames: clip.frames.map((frame) => encodeFrameToNibbles(frame)),
     };
   }
-  const { pixelChart: _omitted, ...rest } = fighter;
+  const { pixelChart: _omitted, eraPacks: _omittedEra, ...rest } = fighter;
   void _omitted;
+  void _omittedEra;
   return {
     ...rest,
     packedChart,

@@ -1,3 +1,4 @@
+import type { FighterBlueprint, GraphicsEra } from '../types/fighter';
 import type {
   CameraPreset,
   HudFighterSnapshot,
@@ -9,6 +10,7 @@ import {
   bakeFighterSprites,
   type BakedFighterSprites,
 } from '../roster/paletteBaker';
+import { resolveFighterForEra } from '../roster/eraResolver';
 import {
   createCameraRig,
   stepCameraRig,
@@ -36,6 +38,8 @@ export class SimulationHost {
   private viewportHeight = 540;
 
   private sim: SimulationState | null = null;
+  private rawFighters: [FighterBlueprint, FighterBlueprint] | null = null;
+  private graphicsEra: GraphicsEra = 'NES';
   private cam: CameraRig = createCameraRig('SIDE_25D');
   private stageCache: BakedStageCache | null = null;
   private bakedFighters: [BakedFighterSprites, BakedFighterSprites] | null = null;
@@ -95,8 +99,14 @@ export class SimulationHost {
         break;
       }
       case 'START_MATCH': {
+        this.graphicsEra = msg.graphicsEra ?? 'NES';
+        this.rawFighters = msg.fighters;
+        const resolved: [FighterBlueprint, FighterBlueprint] = [
+          resolveFighterForEra(msg.fighters[0], this.graphicsEra),
+          resolveFighterForEra(msg.fighters[1], this.graphicsEra),
+        ];
         this.sim = createSimulationState(
-          msg.fighters,
+          resolved,
           msg.paletteIndices,
           msg.controlTypes,
           msg.cpuDifficulty,
@@ -104,10 +114,11 @@ export class SimulationHost {
           msg.stocks,
         );
         this.cam = createCameraRig(this.cam.preset);
+        this.renderer.preloadBackdrop(msg.stage.backdropImage);
         this.stageCache = bakeStageSlices(msg.stage);
         this.bakedFighters = [
-          bakeFighterSprites(msg.fighters[0], msg.paletteIndices[0]),
-          bakeFighterSprites(msg.fighters[1], msg.paletteIndices[1]),
+          bakeFighterSprites(resolved[0], msg.paletteIndices[0]),
+          bakeFighterSprites(resolved[1], msg.paletteIndices[1]),
         ];
         this.paused = false;
         this.p1Mask = 0;
@@ -126,6 +137,18 @@ export class SimulationHost {
         this.setCamera(msg.preset);
         break;
       }
+      case 'SET_ERA': {
+        this.graphicsEra = msg.era;
+        if (this.sim && this.rawFighters && this.bakedFighters) {
+          for (let i = 0; i < 2; i++) {
+            const resolved = resolveFighterForEra(this.rawFighters[i], this.graphicsEra);
+            this.sim.fighters[i].blueprint = resolved;
+            this.bakedFighters[i] = bakeFighterSprites(resolved, this.sim.fighters[i].paletteIndex);
+          }
+        }
+        this.emitHudSnapshot();
+        break;
+      }
       case 'TOGGLE_HITBOX': {
         this.hitboxesVisible =
           msg.visible !== undefined ? msg.visible : !this.hitboxesVisible;
@@ -142,8 +165,10 @@ export class SimulationHost {
         for (let i = 0; i < 2; i++) {
           const ent = this.sim.fighters[i];
           if (ent.blueprint.id === msg.fighter.id) {
-            ent.blueprint = msg.fighter;
-            this.bakedFighters[i] = bakeFighterSprites(msg.fighter, ent.paletteIndex);
+            if (this.rawFighters) this.rawFighters[i] = msg.fighter;
+            const resolved = resolveFighterForEra(msg.fighter, this.graphicsEra);
+            ent.blueprint = resolved;
+            this.bakedFighters[i] = bakeFighterSprites(resolved, ent.paletteIndex);
           }
         }
         break;
@@ -270,6 +295,7 @@ export class SimulationHost {
     const snapshot: HudSnapshot = {
       fighters: [makeHudFighter(0), makeHudFighter(1)],
       cameraPreset: this.cam.preset,
+      graphicsEra: this.graphicsEra,
       hitboxesVisible: this.hitboxesVisible,
       paused: this.paused,
       matchTimeTicks: this.sim.matchTimeTicks,

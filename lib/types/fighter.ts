@@ -1,6 +1,8 @@
 import type { PalettePreset, PixelChart } from './palette';
 
-export type RetroEra = 'NES' | 'SNES';
+export type GraphicsEra = 'NES' | 'SNES_SEGA';
+
+export type RetroEra = 'NES' | 'SNES' | 'SEGA';
 
 export type ArchetypeId =
   | 'brawler'
@@ -8,7 +10,18 @@ export type ArchetypeId =
   | 'sword-hero'
   | 'zoner'
   | 'speedster'
-  | 'heavy-gunner';
+  | 'heavy-gunner'
+  | 'floaty-puff'
+  | 'heavy-grappler'
+  | 'whip-hunter'
+  | 'shinobi'
+  | 'sky-archer'
+  | 'boxer';
+
+export interface EraSpritePack {
+  pixelChart: PixelChart;
+  palettes: PalettePreset[];
+}
 
 export interface HitboxDef {
   offsetX: number;
@@ -75,6 +88,8 @@ export interface FighterBlueprint {
   gridSize: number;
   palettes: PalettePreset[];
   pixelChart: PixelChart;
+  /** Optional authentic dual-era packs toggled live between 8-bit NES and 16-bit SNES/SEGA */
+  eraPacks?: Record<GraphicsEra, EraSpritePack>;
   stats: FighterStats;
   moveset: FighterMoveset;
   isCustom?: boolean;

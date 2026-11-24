@@ -74,9 +74,16 @@ export function SpriteCanvas(props: SpriteCanvasProps): React.ReactElement {
     };
   }, [pixelChart, palette, animState, sizePx, flipX, animate]);
 
+  const firstFrame = (pixelChart[animState] ?? pixelChart.idle).frames[0];
+  const frameH = firstFrame?.length ?? 16;
+  const frameW = firstFrame?.[0]?.length ?? frameH;
+  const maxDim = Math.max(1, frameW, frameH);
+  const cssW = Math.max(16, Math.round((frameW / maxDim) * sizePx));
+  const cssH = Math.max(16, Math.round((frameH / maxDim) * sizePx));
+
   return React.createElement('canvas', {
     ref: canvasRef,
-    style: { width: `${sizePx}px`, height: `${sizePx}px` },
-    className: `pixelated block select-none ${className}`,
+    style: { width: `${cssW}px`, height: `${cssH}px` },
+    className: ['pixelated block select-none', className].filter(Boolean).join(' '),
   });
 }

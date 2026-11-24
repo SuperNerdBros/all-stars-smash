@@ -6,7 +6,7 @@ import type {
   WorkerInMessage,
   WorkerOutMessage,
 } from '../types/protocol';
-import type { FighterBlueprint } from '../types/fighter';
+import type { FighterBlueprint, GraphicsEra } from '../types/fighter';
 import type { StageManifest } from '../types/stage';
 import { SimulationHost } from './simulationHost';
 
@@ -116,7 +116,7 @@ export class EngineWorkerBridge {
         );
         return;
       } catch {
-        // Fall through to in-thread fallback with a fresh non-transferred canvas.
+        // chemx-allow: best-effort fallback to in-thread SimulationHost when OffscreenCanvas transfer fails
       }
     }
 
@@ -130,6 +130,7 @@ export class EngineWorkerBridge {
     cpuDifficulty: CpuDifficulty;
     stage: StageManifest;
     stocks: number;
+    graphicsEra: GraphicsEra;
   }): void {
     this.pendingStartParams = params;
     this.post({
@@ -144,6 +145,13 @@ export class EngineWorkerBridge {
 
   public setCamera(preset: CameraPreset): void {
     this.post({ type: 'SET_CAMERA', preset });
+  }
+
+  public setEra(era: GraphicsEra): void {
+    if (this.pendingStartParams) {
+      this.pendingStartParams = { ...this.pendingStartParams, graphicsEra: era };
+    }
+    this.post({ type: 'SET_ERA', era });
   }
 
   public toggleHitboxes(visible?: boolean): void {
