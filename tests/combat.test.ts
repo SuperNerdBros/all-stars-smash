@@ -13,6 +13,7 @@ import {
 import { resolveMove, type ResolveContext } from '../lib/engine/moveResolver';
 import { buildFullMoveset, validateMoveset } from '../lib/roster/movesetBuilder';
 import { BUILTIN_FIGHTERS } from '../lib/roster/registry';
+import { WWW_FIGHTERS } from '../lib/roster/www/wwwFighters';
 import { STAGE_MANIFESTS } from '../lib/stages/manifests';
 import { createSimulationState, stepSimulation, type SimulationState } from '../lib/engine/physics';
 import {
@@ -150,8 +151,8 @@ test('every built-in fighter derives a valid 23-slot moveset', () => {
   }
 });
 
-test('built-in roster has 50 unique fighters with valid palettes and era sprites', () => {
-  assert.equal(BUILTIN_FIGHTERS.length, 50);
+test('built-in roster has the 50 legacy fighters plus the Www cast, all valid', () => {
+  assert.equal(BUILTIN_FIGHTERS.length, 50 + WWW_FIGHTERS.length);
   const ids = new Set<string>();
   for (const bp of BUILTIN_FIGHTERS) {
     assert.equal(ids.has(bp.id), false, `duplicate fighter id: ${bp.id}`);

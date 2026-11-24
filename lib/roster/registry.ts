@@ -24,6 +24,7 @@ import { ARCADE_LEGENDS_FIGHTERS } from './fighters/arcadeLegends';
 import { ARCADE_WARRIORS_FIGHTERS } from './fighters/arcadeWarriors';
 import { ACTION_HEROES_FIGHTERS } from './fighters/actionHeroes';
 import { NINETIES_ICONS_FIGHTERS } from './fighters/ninetiesIcons';
+import { WWW_FIGHTERS } from './www/wwwFighters';
 import { clonePixelChart } from './chartParser';
 import {
   packFighterForStorage,
@@ -39,6 +40,8 @@ const STORAGE_KEY = 'pixel_brawl_25d_custom_fighters_v4';
  * Paired with the '?' Random tile on Character Select for a 51-tile Smash mosaic.
  */
 export const BUILTIN_FIGHTERS: readonly FighterBlueprint[] = [
+  // House cast first: original Www Fighters (see lib/roster/www/).
+  ...WWW_FIGHTERS,
   MARIO_BLUEPRINT,
   DONKEY_KONG_BLUEPRINT,
   LINK_BLUEPRINT,
