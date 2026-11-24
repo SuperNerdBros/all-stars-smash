@@ -12,5 +12,5 @@ export const BRAND = {
   /** Plain-text full title for <title>, metadata, share cards. */
   fullTitle: "Super All Stars! : The Late 1900's",
   tagline: "A 2.5D retro platform fighter",
-  githubUrl: "https://github.com/xopherdeep/retro-ssb",
+  githubUrl: "https://github.com/SuperNerdBros/all-stars-smash",
 } as const;

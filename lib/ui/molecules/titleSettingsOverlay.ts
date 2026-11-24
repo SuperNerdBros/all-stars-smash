@@ -320,7 +320,7 @@ export function TitleSettingsOverlay(props: TitleSettingsOverlayProps): React.Re
             'flex items-center justify-center gap-2 px-5 py-2.5 border-t-[3px] border-black bg-black/40 hover:bg-black/70 font-display font-black uppercase text-xs tracking-wider text-white/85 hover:text-[#FACC15]',
         },
         React.createElement(Github, { className: 'w-4 h-4' }),
-        'Source on GitHub · xopherdeep/retro-ssb',
+        'Source on GitHub · SuperNerdBros/all-stars-smash',
       ),
     ),
   );
