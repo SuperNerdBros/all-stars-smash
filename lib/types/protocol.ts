@@ -28,8 +28,7 @@ export type CameraPreset =
 export type CpuDifficulty = 'easy' | 'normal' | 'hard';
 
 /** Most fighters in one match (and seats in one online room). */
-export const MAX_FIGHTERS = 8;
-export const MIN_FIGHTERS = 2;
+export { MAX_FIGHTERS, MIN_FIGHTERS } from './seats';
 
 export type PlayerControlType = 'human' | 'cpu';
 
