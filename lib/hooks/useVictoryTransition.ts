@@ -9,7 +9,7 @@ const FINISH_BANNER_DELAY_MS = 1250;
  * Holds the GAME! finish banner briefly after a final KO before invoking onMatchComplete.
  */
 export function useVictoryTransition(
-  winnerSlot: 0 | 1 | null,
+  winnerSlot: number | null,
   hud: HudSnapshot | null,
   onMatchComplete: (hud: HudSnapshot) => void,
 ): void {

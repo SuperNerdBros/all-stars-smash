@@ -24,6 +24,7 @@ import {
   createSimulationState,
   getActiveHitbox,
   getActiveHitboxes,
+  nearestOpponent,
   HURTBOX_HALF_W,
   HURTBOX_HEIGHT,
   rectsOverlap,
@@ -155,6 +156,7 @@ function applyHit(sim: SimulationState, attacker: FighterEntity, victim: Fighter
   }
 
   victim.damagePct = Math.min(999, Math.round((victim.damagePct + damage) * 10) / 10);
+  victim.lastHitBy = attacker.slot;
   attacker.damageDealt += damage;
 
   // Getting hit breaks any grab the victim was doing.
@@ -256,6 +258,7 @@ function startMove(sim: SimulationState, f: FighterEntity, slot: MoveSlot, trigg
   f.moveKey = slot;
   f.moveTick = 0;
   f.moveHitApplied = false;
+  f.moveHitMask = 0;
   f.moveLastHitTick = -999;
   f.moveTriggerMask = triggerMask;
   f.chargeFrames = 0;
@@ -486,6 +489,7 @@ function beginGrab(sim: SimulationState, holder: FighterEntity, victim: FighterE
   holder.grabTimer = Math.min(240, Math.round(60 + victim.damagePct * 0.9));
   holder.vx = 0;
   victim.grabbedBySlot = holder.slot;
+  victim.lastHitBy = holder.slot;
   victim.moveKey = null;
   victim.shielding = false;
   victim.hitstun = 0;
@@ -498,7 +502,7 @@ function beginGrab(sim: SimulationState, holder: FighterEntity, victim: FighterE
 }
 
 function stepHolding(sim: SimulationState, f: FighterEntity, rawMask: number): void {
-  const victim = sim.fighters[f.holdingSlot as 0 | 1];
+  const victim = sim.fighters[f.holdingSlot as number];
   f.vx *= 0.6;
   f.animState = 'attack';
 
@@ -535,7 +539,7 @@ function stepHolding(sim: SimulationState, f: FighterEntity, rawMask: number): v
 const CPU_MASH_RATE = { easy: 1, normal: 2, hard: 3 } as const;
 
 function stepGrabbed(sim: SimulationState, f: FighterEntity): void {
-  const holder = sim.fighters[f.grabbedBySlot as 0 | 1];
+  const holder = sim.fighters[f.grabbedBySlot as number];
   f.animState = 'hurt';
   f.shielding = false;
   const mashed = f.controlType === 'cpu'
@@ -736,12 +740,11 @@ function stepProjectiles(sim: SimulationState): void {
       }
     }
 
-    const victim = sim.fighters[p.ownerSlot === 0 ? 1 : 0];
     const owner = sim.fighters[p.ownerSlot];
-    const hitVictim =
-      victim.respawnTimer === 0 &&
-      victim.grabbedBySlot === null &&
-      rectsOverlap(
+    let consumed = false;
+    for (const victim of sim.fighters) {
+      if (victim.slot === p.ownerSlot || victim.respawnTimer > 0 || victim.grabbedBySlot !== null) continue;
+      const overlaps = rectsOverlap(
         p.x - p.radius,
         p.y - p.radius,
         p.radius * 2,
@@ -751,8 +754,7 @@ function stepProjectiles(sim: SimulationState): void {
         HURTBOX_HALF_W * 2,
         HURTBOX_HEIGHT,
       );
-
-    if (hitVictim) {
+      if (!overlaps) continue;
       const dir: 1 | -1 = p.vx >= 0 ? 1 : -1;
       const connected = applyHit(sim, owner, victim, {
         slot: p.moveSlot,
@@ -764,9 +766,13 @@ function stepProjectiles(sim: SimulationState): void {
         element: p.element,
       });
       if (connected) {
-        sim.projectiles.splice(i, 1);
-        continue;
+        consumed = true;
+        break;
       }
+    }
+    if (consumed) {
+      sim.projectiles.splice(i, 1);
+      continue;
     }
 
     if (p.life <= 0) {
@@ -784,44 +790,53 @@ function resolveMeleeHits(sim: SimulationState): void {
     const move = attacker.moves[slot];
     if (slot === 'pummel' || isThrowSlot(slot)) continue;
 
+    // Multi-hit moves clear their per-victim hit set every interval.
     const canRehit = move.multiHitInterval !== undefined &&
       attacker.moveTick - attacker.moveLastHitTick >= move.multiHitInterval;
-    if (attacker.moveHitApplied && !canRehit) continue;
+    if (canRehit) attacker.moveHitMask = 0;
 
-    const victim = sim.fighters[attacker.slot === 0 ? 1 : 0];
-    if (victim.respawnTimer > 0 || victim.grabbedBySlot !== null) continue;
+    const boxes = getActiveHitboxes(attacker);
+    if (boxes.length === 0) continue;
 
-    const vx = victim.x - HURTBOX_HALF_W;
-    const vy = victim.y - HURTBOX_HEIGHT;
-    // Hitboxes are id-sorted, so the first overlap is the highest-priority one.
-    const hb = getActiveHitboxes(attacker).find((h) =>
-      rectsOverlap(h.x, h.y, h.w, h.h, vx, vy, HURTBOX_HALF_W * 2, HURTBOX_HEIGHT),
-    );
-    if (!hb) continue;
+    for (const victim of sim.fighters) {
+      if (victim === attacker || victim.respawnTimer > 0 || victim.stocks <= 0 || victim.grabbedBySlot !== null) continue;
+      const bit = 1 << victim.slot;
+      if (attacker.moveHitMask & bit) continue;
 
-    if (slot === 'grab') {
-      if (victim.invulnTimer > 0 || isIntangible(victim) || victim.holdingSlot !== null && sim.fighters[victim.holdingSlot] === attacker) continue;
-      attacker.moveHitApplied = true;
-      beginGrab(sim, attacker, victim);
-      continue;
-    }
+      const vx = victim.x - HURTBOX_HALF_W;
+      const vy = victim.y - HURTBOX_HEIGHT;
+      // Hitboxes are id-sorted, so the first overlap is the highest-priority one.
+      const hb = boxes.find((h) => rectsOverlap(h.x, h.y, h.w, h.h, vx, vy, HURTBOX_HALF_W * 2, HURTBOX_HEIGHT));
+      if (!hb) continue;
 
-    const dir: 1 | -1 = victim.x >= attacker.x ? 1 : -1;
-    const connected = applyHit(sim, attacker, victim, hitParamsFrom(slot, move, hb, dir, attacker.moveChargeMult));
-    if (connected) {
-      attacker.moveHitApplied = true;
-      attacker.moveLastHitTick = attacker.moveTick;
+      if (slot === 'grab') {
+        const alreadyHeld = attacker.holdingSlot !== null;
+        if (alreadyHeld || victim.invulnTimer > 0 || isIntangible(victim) || victim.holdingSlot === attacker.slot) continue;
+        attacker.moveHitMask |= bit;
+        attacker.moveHitApplied = true;
+        beginGrab(sim, attacker, victim);
+        break;
+      }
+
+      const dir: 1 | -1 = victim.x >= attacker.x ? 1 : -1;
+      const connected = applyHit(sim, attacker, victim, hitParamsFrom(slot, move, hb, dir, attacker.moveChargeMult));
+      if (connected) {
+        attacker.moveHitMask |= bit;
+        attacker.moveHitApplied = true;
+        attacker.moveLastHitTick = attacker.moveTick;
+      }
     }
   }
 }
 
 // ── Main tick ───────────────────────────────────────────────────
 
-function computeMask(sim: SimulationState, f: FighterEntity, other: FighterEntity, humanMask: number): number {
+function computeMask(sim: SimulationState, f: FighterEntity, humanMask: number): number {
   if (f.controlType !== 'cpu') return humanMask;
+  const target = nearestOpponent(sim, f) ?? f;
   return computeCpuInputMask(
     { ...f, moveState: f.moveKey, isRespawning: f.respawnTimer > 0 },
-    { ...other, moveState: other.moveKey, isRespawning: other.respawnTimer > 0 },
+    { ...target, moveState: target.moveKey, isRespawning: target === f || target.respawnTimer > 0 },
     sim.stage,
     sim.cpuDifficulty,
     f.ai,
@@ -829,7 +844,7 @@ function computeMask(sim: SimulationState, f: FighterEntity, other: FighterEntit
   );
 }
 
-function stepHitstop(sim: SimulationState, humanMasks: [number, number]): void {
+function stepHitstop(sim: SimulationState, masks: readonly number[]): void {
   sim.hitstopTimer--;
   for (const f of sim.fighters) {
     const isVictim = sim.hitstopVictims.includes(f.slot);
@@ -838,7 +853,7 @@ function stepHitstop(sim: SimulationState, humanMasks: [number, number]): void {
       continue;
     }
     // Humans keep buffering through hitlag; defenders also get SDI.
-    updateInputBuffer(f.input, humanMasks[f.slot], true);
+    updateInputBuffer(f.input, masks[f.slot] ?? 0, true);
     if (isVictim) applySdi(f);
   }
   if (sim.hitstopTimer <= 0) {
@@ -850,11 +865,11 @@ function stepHitstop(sim: SimulationState, humanMasks: [number, number]): void {
   }
 }
 
-export function stepSimulation(
-  sim: SimulationState,
-  p1HumanMask: number,
-  p2HumanMask: number,
-): void {
+/**
+ * Advances the match one 60Hz frame. `masks[slot]` is the input for each human seat
+ * (local or remote); CPU seats compute their own. Deterministic for identical inputs.
+ */
+export function stepSimulation(sim: SimulationState, masks: readonly number[]): void {
   if (sim.winnerSlot !== null) {
     stepParticles(sim);
     return;
@@ -863,23 +878,15 @@ export function stepSimulation(
   sim.matchTimeTicks++;
 
   if (sim.hitstopTimer > 0) {
-    stepHitstop(sim, [p1HumanMask, p2HumanMask]);
+    stepHitstop(sim, masks);
     stepParticles(sim);
     return;
   }
 
-  const [f0, f1] = sim.fighters;
-  const mask0 = computeMask(sim, f0, f1, p1HumanMask);
-  const mask1 = computeMask(sim, f1, f0, p2HumanMask);
-
-  stepFighterControl(sim, f0, mask0);
-  stepFighterControl(sim, f1, mask1);
-
-  integrateFighterStagePhysics(sim, f0);
-  integrateFighterStagePhysics(sim, f1);
-
-  f0.animTick++;
-  f1.animTick++;
+  const resolved = sim.fighters.map((f) => computeMask(sim, f, masks[f.slot] ?? 0));
+  for (const f of sim.fighters) stepFighterControl(sim, f, resolved[f.slot]);
+  for (const f of sim.fighters) integrateFighterStagePhysics(sim, f);
+  for (const f of sim.fighters) f.animTick++;
 
   resolveMeleeHits(sim);
   stepProjectiles(sim);

@@ -24,7 +24,7 @@ interface RuntimeRefs {
 export function useMatchEngine(
   containerRef: RefObject<HTMLDivElement | null>,
   canvasHostRef: RefObject<HTMLDivElement | null>,
-  fighters: [FighterBlueprint, FighterBlueprint],
+  fighters: FighterBlueprint[],
   matchConfig: MatchConfig,
   stage: StageManifest,
   onToggleEra: () => void,
@@ -48,13 +48,13 @@ export function useMatchEngine(
     runtimeRef.current.bridge?.setEra(matchConfig.graphicsEra);
   }, [onToggleEra, matchConfig.graphicsEra]);
 
-  const p1Id = fighters[0].id;
-  const p2Id = fighters[1].id;
-  const p1Pal = matchConfig.players[0].paletteIndex;
-  const p2Pal = matchConfig.players[1].paletteIndex;
-  const p1Ctrl = matchConfig.players[0].controlType;
-  const p2Ctrl = matchConfig.players[1].controlType;
-  const cpuDiff = matchConfig.players[1].cpuDifficulty;
+  const paletteIndices = matchConfig.players.map((p) => p.paletteIndex);
+  const controlTypes = matchConfig.players.map((p) => p.controlType);
+  const cpuDiff = matchConfig.players.find((p) => p.controlType === 'cpu')?.cpuDifficulty ?? 'normal';
+  /** Primitive key so the OffscreenCanvas is transferred once per match setup. */
+  const seatKey = matchConfig.players
+    .map((p, i) => `${fighters[i]?.id}:${p.paletteIndex}:${p.controlType}`)
+    .join('|');
   const stocks = matchConfig.stocks;
   const stageId = stage.id;
 
@@ -74,8 +74,8 @@ export function useMatchEngine(
       onReady: () => {
         bridge.startMatch({
           fighters,
-          paletteIndices: [p1Pal, p2Pal],
-          controlTypes: [p1Ctrl, p2Ctrl],
+          paletteIndices,
+          controlTypes,
           cpuDifficulty: cpuDiff,
           stage,
           stocks,
@@ -95,7 +95,7 @@ export function useMatchEngine(
     });
 
     const poller = new MainThreadInputPoller({
-      onInputs: (p1Mask, p2Mask) => bridge.sendInputs(p1Mask, p2Mask),
+      onInputs: (p1Mask, p2Mask) => bridge.sendInputs([p1Mask, p2Mask]),
       onCameraHotkey: (preset) => {
         chiptuneAudio.playMenuTick();
         bridge.setCamera(preset);
@@ -133,7 +133,7 @@ export function useMatchEngine(
     };
     // Intentionally keyed on primitive match identifiers so OffscreenCanvas transfer occurs once per match
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p1Id, p2Id, p1Pal, p2Pal, p1Ctrl, p2Ctrl, cpuDiff, stocks, stageId]);
+  }, [seatKey, cpuDiff, stocks, stageId]);
 
   const selectCamera = (preset: CameraPreset) => {
     chiptuneAudio.playMenuTick();
@@ -157,8 +157,8 @@ export function useMatchEngine(
     chiptuneAudio.playMenuConfirm();
     runtimeRef.current.bridge?.startMatch({
       fighters,
-      paletteIndices: [p1Pal, p2Pal],
-      controlTypes: [p1Ctrl, p2Ctrl],
+      paletteIndices,
+      controlTypes,
       cpuDifficulty: cpuDiff,
       stage,
       stocks,

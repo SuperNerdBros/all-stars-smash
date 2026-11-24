@@ -6,11 +6,11 @@ export const BRAND = {
   /** Small kicker above the main wordmark. */
   kicker: 'SUPER',
   /** Main wordmark line. */
-  wordmark: "80's & 90's",
+  wordmark: 'ALL STARS!',
   /** Banner line under the wordmark. */
-  banner: 'ALL-STARS!',
+  banner: "THE LATE 1900'S",
   /** Plain-text full title for <title>, metadata, share cards. */
-  fullTitle: "Super 80's & 90's All-Stars!",
+  fullTitle: "Super All Stars! : The Late 1900's",
   tagline: 'A 2.5D retro platform fighter',
   githubUrl: 'https://github.com/xopherdeep/retro-ssb',
 } as const;

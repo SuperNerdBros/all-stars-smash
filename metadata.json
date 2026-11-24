@@ -1,5 +1,5 @@
 {
-  "name": "Super 80's & 90's All-Stars!",
+  "name": "Super All Stars! : The Late 1900's",
   "description": "A browser-based 2.5D retro platform fighter with a Web Worker sprite-stacking renderer, classic multi-frame indexed pixel-chart fighters, smooth 4-angle camera, Pixel Forge editor, and PNG sprite-sheet importer.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

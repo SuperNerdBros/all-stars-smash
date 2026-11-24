@@ -4,6 +4,7 @@ import {
   HURTBOX_HALF_W,
   HURTBOX_HEIGHT,
   spawnParticles,
+  spawnPointFor,
   type FighterEntity,
   type SimulationState,
 } from './combatTypes';
@@ -60,8 +61,10 @@ function handleBlastZoneKo(sim: SimulationState, f: FighterEntity): void {
   const outY = f.y < bz.top || f.y > bz.bottom;
   if (!outX && !outY) return;
 
-  const opp = sim.fighters[f.slot === 0 ? 1 : 0];
-  opp.kosScored++;
+  // Credit whoever hit them last (a self-destruct credits nobody).
+  const killer = f.lastHitBy !== null && f.lastHitBy !== f.slot ? sim.fighters[f.lastHitBy] : null;
+  if (killer) killer.kosScored++;
+  f.lastHitBy = null;
   f.stocks = Math.max(0, f.stocks - 1);
   sim.pendingSfx.push('ko');
   sim.pendingKo = { x: f.x, y: f.y };
@@ -73,13 +76,18 @@ function handleBlastZoneKo(sim: SimulationState, f: FighterEntity): void {
 
   const isEliminated = f.stocks <= 0;
   if (isEliminated) {
-    sim.winnerSlot = opp.slot;
-    sim.pendingSfx.push('victory');
     f.respawnTimer = 9999;
+    f.x = 0;
+    f.y = bz.top - 200;
+    const survivors = sim.fighters.filter((o) => o.stocks > 0);
+    if (survivors.length <= 1) {
+      sim.winnerSlot = survivors[0]?.slot ?? killer?.slot ?? f.slot;
+      sim.pendingSfx.push('victory');
+    }
     return;
   }
 
-  const spawn = sim.stage.spawnPoints[f.slot];
+  const spawn = spawnPointFor(sim.stage, f.slot, sim.fighters.length);
   f.x = spawn.x;
   f.y = spawn.y - 34;
   f.vx = 0;

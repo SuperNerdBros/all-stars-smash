@@ -31,7 +31,7 @@ export interface ActiveHitboxWorld {
 }
 
 export interface FighterEntity {
-  slot: 0 | 1;
+  slot: number;
   blueprint: FighterBlueprint;
   paletteIndex: number;
   controlType: PlayerControlType;
@@ -85,9 +85,13 @@ export interface FighterEntity {
   kbDecay: number;
   pendingLaunch: PendingLaunch | null;
   /** Slot of the fighter this one is holding, or null. */
-  holdingSlot: 0 | 1 | null;
+  holdingSlot: number | null;
   /** Slot of the fighter holding this one, or null. */
-  grabbedBySlot: 0 | 1 | null;
+  grabbedBySlot: number | null;
+  /** Bit per victim slot already hit by the current move. */
+  moveHitMask: number;
+  /** Who last damaged this fighter (credited with the KO). */
+  lastHitBy: number | null;
   grabTimer: number;
   animState: AnimState;
   animTick: number;
@@ -101,7 +105,7 @@ export interface FighterEntity {
 
 export interface ProjectileEntity {
   id: number;
-  ownerSlot: 0 | 1;
+  ownerSlot: number;
   x: number;
   y: number;
   vx: number;
@@ -137,15 +141,15 @@ export interface ParticleEntity {
 
 export interface SimulationState {
   stage: StageManifest;
-  fighters: [FighterEntity, FighterEntity];
+  fighters: FighterEntity[];
   projectiles: ProjectileEntity[];
   particles: ParticleEntity[];
   cpuDifficulty: CpuDifficulty;
   hitstopTimer: number;
   /** Fighters currently frozen as the defender of a hit (DI/SDI is read for them). */
-  hitstopVictims: (0 | 1)[];
+  hitstopVictims: number[];
   matchTimeTicks: number;
-  winnerSlot: 0 | 1 | null;
+  winnerSlot: number | null;
   nextProjId: number;
   pendingSfx: SfxEvent[];
   pendingShake: number;
@@ -167,7 +171,7 @@ type CombatExtras = Pick<
   | 'moves' | 'moveLastHitTick' | 'moveTriggerMask' | 'chargeFrames' | 'moveChargeMult'
   | 'landingLagTimer' | 'jumpSquatTimer' | 'crouching' | 'running' | 'onPassThrough'
   | 'staleQueue' | 'kbVx' | 'kbVy' | 'kbDecay' | 'pendingLaunch'
-  | 'holdingSlot' | 'grabbedBySlot' | 'grabTimer'
+  | 'holdingSlot' | 'grabbedBySlot' | 'grabTimer' | 'moveHitMask' | 'lastHitBy'
 >;
 
 /** Default values for the combat-engine fields added for the full move matrix. */
@@ -191,11 +195,13 @@ export function createCombatExtras(blueprint: FighterBlueprint): CombatExtras {
     holdingSlot: null,
     grabbedBySlot: null,
     grabTimer: 0,
+    moveHitMask: 0,
+    lastHitBy: null,
   };
 }
 
 function createFighterEntity(
-  slot: 0 | 1,
+  slot: number,
   blueprint: FighterBlueprint,
   paletteIndex: number,
   controlType: PlayerControlType,
@@ -211,7 +217,7 @@ function createFighterEntity(
     y: spawn.y,
     vx: 0,
     vy: 0,
-    facing: slot === 0 ? 1 : -1,
+    facing: spawn.x <= 0 ? 1 : -1,
     grounded: false,
     onIce: false,
     jumpsLeft: blueprint.stats.maxJumps,
@@ -247,20 +253,38 @@ function createFighterEntity(
   };
 }
 
+export interface FighterSpawnSpec {
+  blueprint: FighterBlueprint;
+  paletteIndex: number;
+  controlType: PlayerControlType;
+}
+
+/**
+ * Spawn point for seat `i` of `n`. Seats 0/1 use the stage's authored points; more seats are spread
+ * evenly between (and slightly beyond) them, alternating sides so neighbours start apart.
+ */
+export function spawnPointFor(stage: StageManifest, i: number, n: number): { x: number; y: number } {
+  const [a, b] = stage.spawnPoints;
+  if (n <= 2 || !b) return stage.spawnPoints[i] ?? a;
+  const left = Math.min(a.x, b.x);
+  const right = Math.max(a.x, b.x);
+  const span = right - left;
+  // Order seats left→right: 0, 2, 4 … on the left half, 1, 3, 5 … mirrored on the right.
+  const t = n === 1 ? 0.5 : (i % 2 === 0 ? i / 2 : n - 1 - (i - 1) / 2) / (n - 1);
+  return { x: left - span * 0.1 + span * 1.2 * t, y: Math.min(a.y, b.y) };
+}
+
 export function createSimulationState(
-  fighters: [FighterBlueprint, FighterBlueprint],
-  paletteIndices: [number, number],
-  controlTypes: [PlayerControlType, PlayerControlType],
+  specs: readonly FighterSpawnSpec[],
   cpuDifficulty: CpuDifficulty,
   stage: StageManifest,
   stocks: number,
 ): SimulationState {
   return {
     stage,
-    fighters: [
-      createFighterEntity(0, fighters[0], paletteIndices[0], controlTypes[0], stage.spawnPoints[0], stocks),
-      createFighterEntity(1, fighters[1], paletteIndices[1], controlTypes[1], stage.spawnPoints[1], stocks),
-    ],
+    fighters: specs.map((s, i) =>
+      createFighterEntity(i, s.blueprint, s.paletteIndex, s.controlType, spawnPointFor(stage, i, specs.length), stocks),
+    ),
     projectiles: [],
     particles: [],
     cpuDifficulty,
@@ -273,6 +297,26 @@ export function createSimulationState(
     pendingShake: 0,
     pendingKo: null,
   };
+}
+
+/** Fighters still in the match (have stocks left). */
+export function aliveFighters(sim: SimulationState): FighterEntity[] {
+  return sim.fighters.filter((f) => f.stocks > 0);
+}
+
+/** Nearest living opponent, or null. */
+export function nearestOpponent(sim: SimulationState, f: FighterEntity): FighterEntity | null {
+  let best: FighterEntity | null = null;
+  let bestD = Infinity;
+  for (const o of sim.fighters) {
+    if (o === f || o.stocks <= 0 || o.respawnTimer > 0) continue;
+    const d = Math.hypot(o.x - f.x, o.y - f.y);
+    if (d < bestD) {
+      bestD = d;
+      best = o;
+    }
+  }
+  return best;
 }
 
 export function refreshFighterMoves(f: FighterEntity): void {

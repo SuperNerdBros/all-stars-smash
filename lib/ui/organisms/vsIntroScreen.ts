@@ -11,7 +11,7 @@ import { resolveFighterForEra } from '../../roster/eraResolver';
 import { SpriteCanvas } from '../atoms/spriteCanvas';
 
 export interface VsIntroScreenProps {
-  fighters: [FighterBlueprint, FighterBlueprint];
+  fighters: FighterBlueprint[];
   matchConfig: MatchConfig;
   stage: StageManifest;
   onComplete: () => void;

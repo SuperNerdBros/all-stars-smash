@@ -27,6 +27,10 @@ export type CameraPreset =
 
 export type CpuDifficulty = 'easy' | 'normal' | 'hard';
 
+/** Most fighters in one match (and seats in one online room). */
+export const MAX_FIGHTERS = 8;
+export const MIN_FIGHTERS = 2;
+
 export type PlayerControlType = 'human' | 'cpu';
 
 export interface PlayerSlotConfig {
@@ -37,7 +41,8 @@ export interface PlayerSlotConfig {
 }
 
 export interface MatchConfig {
-  players: [PlayerSlotConfig, PlayerSlotConfig];
+  /** One entry per seat, 2..MAX_FIGHTERS. Seats 0 and 1 are the local P1/P2 keyboards. */
+  players: PlayerSlotConfig[];
   stageId: string;
   stocks: number;
   graphicsEra: GraphicsEra;
@@ -56,7 +61,7 @@ export type SfxEvent =
   | 'victory';
 
 export interface HudFighterSnapshot {
-  slot: 0 | 1;
+  slot: number;
   fighterId: string;
   name: string;
   paletteIndex: number;
@@ -71,13 +76,13 @@ export interface HudFighterSnapshot {
 }
 
 export interface HudSnapshot {
-  fighters: [HudFighterSnapshot, HudFighterSnapshot];
+  fighters: HudFighterSnapshot[];
   cameraPreset: CameraPreset;
   graphicsEra: GraphicsEra;
   hitboxesVisible: boolean;
   paused: boolean;
   matchTimeTicks: number;
-  winnerSlot: 0 | 1 | null;
+  winnerSlot: number | null;
   sfxQueue: SfxEvent[];
 }
 
@@ -90,9 +95,9 @@ export type WorkerInMessage =
     }
   | {
       type: 'START_MATCH';
-      fighters: [FighterBlueprint, FighterBlueprint];
-      paletteIndices: [number, number];
-      controlTypes: [PlayerControlType, PlayerControlType];
+      fighters: FighterBlueprint[];
+      paletteIndices: number[];
+      controlTypes: PlayerControlType[];
       cpuDifficulty: CpuDifficulty;
       stage: StageManifest;
       stocks: number;
@@ -100,8 +105,8 @@ export type WorkerInMessage =
     }
   | {
       type: 'INPUT_STATE';
-      p1Mask: number;
-      p2Mask: number;
+      /** Input mask per seat; CPU seats ignore theirs. */
+      masks: number[];
     }
   | {
       type: 'SET_CAMERA';

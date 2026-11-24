@@ -12,7 +12,7 @@ import { SpriteCanvas } from '../atoms/spriteCanvas';
 
 export interface VictoryScreenProps {
   hud: HudSnapshot;
-  fighters: [FighterBlueprint, FighterBlueprint];
+  fighters: FighterBlueprint[];
   matchConfig: MatchConfig;
   stage: StageManifest;
   onRematch: () => void;
@@ -119,9 +119,15 @@ function renderPlacementRow(p: PlacementRowProps): React.ReactElement {
   );
 }
 
-function resolveWinnerBanner(winnerSlot: 0 | 1, isP2Cpu: boolean): string {
-  if (winnerSlot === 0) return 'PLAYER 1 WINS!';
-  return isP2Cpu ? 'CPU WINS!' : 'PLAYER 2 WINS!';
+function resolveWinnerBanner(winnerSlot: number, isCpu: boolean): string {
+  return isCpu ? 'CPU WINS!' : `PLAYER ${winnerSlot + 1} WINS!`;
+}
+
+/** Runner-up: most stocks left, then most KOs, then most damage dealt. */
+function runnerUpSlot(hud: HudSnapshot, winnerSlot: number): number {
+  const others = hud.fighters.filter((f) => f.slot !== winnerSlot);
+  others.sort((a, b) => b.stocks - a.stocks || b.kosScored - a.kosScored || b.damageDealt - a.damageDealt);
+  return others[0]?.slot ?? (winnerSlot === 0 ? 1 : 0);
 }
 
 /**
@@ -129,8 +135,8 @@ function resolveWinnerBanner(winnerSlot: 0 | 1, isP2Cpu: boolean): string {
  */
 export function VictoryScreen(props: VictoryScreenProps): React.ReactElement {
   const { hud, fighters, matchConfig, stage, onRematch, onStageSelect, onCharacterSelect } = props;
-  const winnerSlot: 0 | 1 = hud.winnerSlot === 1 ? 1 : 0;
-  const loserSlot: 0 | 1 = winnerSlot === 0 ? 1 : 0;
+  const winnerSlot = hud.winnerSlot ?? 0;
+  const loserSlot = runnerUpSlot(hud, winnerSlot);
   const winnerFighter = fighters[winnerSlot];
   const loserFighter = fighters[loserSlot];
   const winnerSnap = hud.fighters[winnerSlot];
@@ -139,9 +145,9 @@ export function VictoryScreen(props: VictoryScreenProps): React.ReactElement {
   const palIdx = winnerSnap.paletteIndex % Math.max(1, resolvedWinner.palettes.length);
   const winnerPreset = resolvedWinner.palettes[palIdx] ?? resolvedWinner.palettes[0];
 
-  const isP2Cpu = matchConfig.players[1].controlType === 'cpu';
-  const winnerLabel = resolveWinnerBanner(winnerSlot, isP2Cpu);
-  const p2ControlTag = isP2Cpu ? 'CPU' : 'P2';
+  const isP2Cpu = matchConfig.players[loserSlot]?.controlType === 'cpu';
+  const winnerLabel = resolveWinnerBanner(winnerSlot, matchConfig.players[winnerSlot]?.controlType === 'cpu');
+  const p2ControlTag = isP2Cpu ? 'CPU' : `P${loserSlot + 1}`;
   const backdropUrl =
     winnerSlot === 0
       ? '/assets/screens/victory_spotlight_gold.jpg'

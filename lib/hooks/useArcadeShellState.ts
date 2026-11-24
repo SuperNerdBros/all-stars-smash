@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { FighterBlueprint, GraphicsEra } from '../types/fighter';
-import type { HudSnapshot, MatchConfig } from '../types/protocol';
+import { MAX_FIGHTERS, MIN_FIGHTERS, type HudSnapshot, type MatchConfig } from '../types/protocol';
 import {
   BUILTIN_FIGHTERS,
   loadRoster,
@@ -95,6 +95,10 @@ export function useArcadeShellState() {
     state.roster.find((f) => f.id === state.matchConfig.players[1].fighterId) ??
     state.roster[1] ??
     state.roster[0];
+  /** One blueprint per seat (2..MAX_FIGHTERS). */
+  const matchFighters: FighterBlueprint[] = state.matchConfig.players.map(
+    (p, i) => state.roster.find((f) => f.id === p.fighterId) ?? state.roster[i % Math.max(1, state.roster.length)],
+  );
   const stage = getStageById(state.matchConfig.stageId);
   const forgeFighter = state.forgeFighterId
     ? state.roster.find((f) => f.id === state.forgeFighterId) ?? null
@@ -108,6 +112,7 @@ export function useArcadeShellState() {
     ...state,
     p1Fighter,
     p2Fighter,
+    matchFighters,
     attractFighters: attractFighters.length > 0 ? attractFighters : state.roster.slice(0, ATTRACT_CPU_COUNT),
     stage,
     forgeFighter,
@@ -129,17 +134,18 @@ export function useArcadeShellState() {
       })),
     startQuickBrawl: () =>
       setState((prev) => {
-        const pair = pickRandomFighterIds(prev.roster, 2);
+        const picks = pickRandomFighterIds(prev.roster, prev.matchConfig.players.length);
         return {
           ...prev,
           lastMatchHud: null,
           screen: 'VS_INTRO',
           matchConfig: {
             ...prev.matchConfig,
-            players: [
-              { ...prev.matchConfig.players[0], fighterId: pair[0] ?? prev.matchConfig.players[0].fighterId, paletteIndex: 0 },
-              { ...prev.matchConfig.players[1], fighterId: pair[1] ?? prev.matchConfig.players[1].fighterId, paletteIndex: 0 },
-            ],
+            players: prev.matchConfig.players.map((p, i) => ({
+              ...p,
+              fighterId: picks[i] ?? p.fighterId,
+              paletteIndex: 0,
+            })),
           },
         };
       }),
@@ -174,12 +180,28 @@ export function useArcadeShellState() {
         roster: saveCustomFighterToStorage(prev.roster, created),
         matchConfig: {
           ...prev.matchConfig,
-          players: [
-            { ...prev.matchConfig.players[0], fighterId: created.id, paletteIndex: 0 },
-            prev.matchConfig.players[1],
-          ],
+          players: prev.matchConfig.players.map((p, i) =>
+            i === 0 ? { ...p, fighterId: created.id, paletteIndex: 0 } : p,
+          ),
         },
       })),
+    /** Grows (with CPU seats) or shrinks the match to `size` seats. Seats 0/1 are kept. */
+    setRoomSize: (size: number) =>
+      setState((prev) => {
+        const n = Math.max(MIN_FIGHTERS, Math.min(MAX_FIGHTERS, Math.round(size)));
+        const players = prev.matchConfig.players.slice(0, n);
+        const picks = pickRandomFighterIds(prev.roster, n);
+        const difficulty = players.find((p) => p.controlType === 'cpu')?.cpuDifficulty ?? 'normal';
+        while (players.length < n) {
+          players.push({
+            fighterId: picks[players.length] ?? prev.roster[0]?.id ?? '',
+            paletteIndex: players.length % 4,
+            controlType: 'cpu',
+            cpuDifficulty: difficulty,
+          });
+        }
+        return { ...prev, matchConfig: { ...prev.matchConfig, players } };
+      }),
     resetRoster: () =>
       setState((prev) => ({
         ...prev,

@@ -14,7 +14,7 @@ import { CameraSwitcher } from '../molecules/cameraSwitcher';
 import { HudFighterCard } from '../molecules/hudFighterCard';
 
 export interface MatchViewportProps {
-  fighters: [FighterBlueprint, FighterBlueprint];
+  fighters: FighterBlueprint[];
   matchConfig: MatchConfig;
   stage: StageManifest;
   musicOpen: boolean;
@@ -118,7 +118,7 @@ interface ViewportModel {
   activeEra: GraphicsEra;
   hitboxesVisible: boolean;
   paused: boolean;
-  winnerSlot: 0 | 1 | null;
+  winnerSlot: number | null;
   p2ControlLabel: string;
   matchSeconds: number;
 }
@@ -153,30 +153,41 @@ function deriveViewportModel(hud: HudSnapshot | null, matchConfig: MatchConfig):
 
 function renderHudCards(
   hud: HudSnapshot | null,
-  fighters: [FighterBlueprint, FighterBlueprint],
+  fighters: FighterBlueprint[],
   activeEra: GraphicsEra,
-  p2ControlLabel: string,
+  matchConfig: MatchConfig,
 ): React.ReactElement | null {
   if (!hud) return null;
+  const crowded = hud.fighters.length > 4;
   return React.createElement(
     'div',
     {
-      className:
-        'pointer-events-none fixed bottom-5 left-0 right-0 z-10 flex items-end justify-center gap-8 sm:gap-16 px-6',
+      className: `pointer-events-none fixed bottom-5 left-0 right-0 z-10 flex flex-wrap items-end justify-center px-6 ${
+        crowded ? 'gap-2 scale-75 origin-bottom' : 'gap-8 sm:gap-16'
+      }`,
     },
-    React.createElement(HudFighterCard, {
-      snapshot: hud.fighters[0],
-      fighter: fighters[0],
-      graphicsEra: activeEra,
-      controlLabel: 'Human',
-    }),
-    React.createElement(HudFighterCard, {
-      snapshot: hud.fighters[1],
-      fighter: fighters[1],
-      graphicsEra: activeEra,
-      controlLabel: p2ControlLabel,
+    ...hud.fighters.map((snap) => {
+      const seat = matchConfig.players[snap.slot];
+      const fighter = fighters[snap.slot];
+      if (!fighter) return null;
+      return React.createElement(HudFighterCard, {
+        key: snap.slot,
+        snapshot: snap,
+        fighter,
+        graphicsEra: activeEra,
+        controlLabel: seatControlLabel(seat, snap.slot),
+      });
     }),
   );
+}
+
+/** "P1", "P2", "CPU Hard", "Online" … for a seat's HUD tag. */
+export function seatControlLabel(seat: MatchConfig['players'][number] | undefined, slot: number): string {
+  if (!seat || seat.controlType === 'cpu') {
+    const d = seat?.cpuDifficulty ?? 'normal';
+    return `CPU ${d[0].toUpperCase()}${d.slice(1)}`;
+  }
+  return slot < 2 ? (slot === 0 ? 'Human' : 'Local 2P') : `P${slot + 1}`;
 }
 
 function renderEngineErrorModal(
@@ -286,7 +297,7 @@ export function MatchViewport(props: MatchViewportProps): React.ReactElement {
       onToggleMusic,
       onPause: handleTogglePause,
     }),
-    renderHudCards(state.hud, fighters, model.activeEra, model.p2ControlLabel),
+    renderHudCards(state.hud, fighters, model.activeEra, matchConfig),
     renderActiveOverlay({
       engineError: state.engineError,
       model,

@@ -124,9 +124,9 @@ export class EngineWorkerBridge {
   }
 
   public startMatch(params: {
-    fighters: [FighterBlueprint, FighterBlueprint];
-    paletteIndices: [number, number];
-    controlTypes: [PlayerControlType, PlayerControlType];
+    fighters: FighterBlueprint[];
+    paletteIndices: number[];
+    controlTypes: PlayerControlType[];
     cpuDifficulty: CpuDifficulty;
     stage: StageManifest;
     stocks: number;
@@ -139,8 +139,8 @@ export class EngineWorkerBridge {
     });
   }
 
-  public sendInputs(p1Mask: number, p2Mask: number): void {
-    this.post({ type: 'INPUT_STATE', p1Mask, p2Mask });
+  public sendInputs(masks: number[]): void {
+    this.post({ type: 'INPUT_STATE', masks });
   }
 
   public setCamera(preset: CameraPreset): void {

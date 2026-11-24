@@ -39,14 +39,13 @@ export class SimulationHost {
   private viewportHeight = 540;
 
   private sim: SimulationState | null = null;
-  private rawFighters: [FighterBlueprint, FighterBlueprint] | null = null;
+  private rawFighters: FighterBlueprint[] | null = null;
   private graphicsEra: GraphicsEra = 'NES';
   private cam: CameraRig = createCameraRig('SIDE_25D');
   private stageCache: BakedStageCache | null = null;
-  private bakedFighters: [BakedFighterSprites, BakedFighterSprites] | null = null;
+  private bakedFighters: BakedFighterSprites[] | null = null;
 
-  private p1Mask = 0;
-  private p2Mask = 0;
+  private masks: number[] = [];
   private paused = false;
   private hitboxesVisible = false;
 
@@ -102,14 +101,13 @@ export class SimulationHost {
       case 'START_MATCH': {
         this.graphicsEra = msg.graphicsEra ?? 'NES';
         this.rawFighters = msg.fighters;
-        const resolved: [FighterBlueprint, FighterBlueprint] = [
-          resolveFighterForEra(msg.fighters[0], this.graphicsEra),
-          resolveFighterForEra(msg.fighters[1], this.graphicsEra),
-        ];
+        const resolved = msg.fighters.map((f) => resolveFighterForEra(f, this.graphicsEra));
         this.sim = createSimulationState(
-          resolved,
-          msg.paletteIndices,
-          msg.controlTypes,
+          resolved.map((blueprint, i) => ({
+            blueprint,
+            paletteIndex: msg.paletteIndices[i] ?? 0,
+            controlType: msg.controlTypes[i] ?? 'cpu',
+          })),
           msg.cpuDifficulty,
           msg.stage,
           msg.stocks,
@@ -117,21 +115,16 @@ export class SimulationHost {
         this.cam = createCameraRig(this.cam.preset);
         this.renderer.preloadBackdrop(msg.stage.backdropImage);
         this.stageCache = bakeStageSlices(msg.stage);
-        this.bakedFighters = [
-          bakeFighterSprites(resolved[0], msg.paletteIndices[0]),
-          bakeFighterSprites(resolved[1], msg.paletteIndices[1]),
-        ];
+        this.bakedFighters = resolved.map((bp, i) => bakeFighterSprites(bp, msg.paletteIndices[i] ?? 0));
         this.paused = false;
-        this.p1Mask = 0;
-        this.p2Mask = 0;
+        this.masks = [];
         this.accumulatorMs = 0;
         this.startLoop();
         this.emitHudSnapshot();
         break;
       }
       case 'INPUT_STATE': {
-        this.p1Mask = msg.p1Mask;
-        this.p2Mask = msg.p2Mask;
+        this.masks = msg.masks;
         break;
       }
       case 'SET_CAMERA': {
@@ -141,7 +134,7 @@ export class SimulationHost {
       case 'SET_ERA': {
         this.graphicsEra = msg.era;
         if (this.sim && this.rawFighters && this.bakedFighters) {
-          for (let i = 0; i < 2; i++) {
+          for (let i = 0; i < this.sim.fighters.length; i++) {
             const resolved = resolveFighterForEra(this.rawFighters[i], this.graphicsEra);
             this.sim.fighters[i].blueprint = resolved;
             refreshFighterMoves(this.sim.fighters[i]);
@@ -164,7 +157,7 @@ export class SimulationHost {
       }
       case 'HOT_RELOAD_FIGHTER': {
         if (!this.sim || !this.bakedFighters) break;
-        for (let i = 0; i < 2; i++) {
+        for (let i = 0; i < this.sim.fighters.length; i++) {
           const ent = this.sim.fighters[i];
           if (ent.blueprint.id === msg.fighter.id) {
             if (this.rawFighters) this.rawFighters[i] = msg.fighter;
@@ -226,7 +219,7 @@ export class SimulationHost {
         this.accumulatorMs += elapsed;
         let steps = 0;
         while (this.accumulatorMs >= FIXED_STEP_MS && steps < 4) {
-          stepSimulation(this.sim, this.p1Mask, this.p2Mask);
+          stepSimulation(this.sim, this.masks);
 
           if (this.sim.pendingShake > 0) {
             triggerCameraShake(this.cam, this.sim.pendingShake);
@@ -277,7 +270,7 @@ export class SimulationHost {
   private emitHudSnapshot(): void {
     if (!this.sim) return;
     const sfxQueue = this.sim.pendingSfx.splice(0, this.sim.pendingSfx.length);
-    const makeHudFighter = (slot: 0 | 1): HudFighterSnapshot => {
+    const makeHudFighter = (slot: number): HudFighterSnapshot => {
       const f = this.sim!.fighters[slot];
       return {
         slot,
@@ -296,7 +289,7 @@ export class SimulationHost {
     };
 
     const snapshot: HudSnapshot = {
-      fighters: [makeHudFighter(0), makeHudFighter(1)],
+      fighters: this.sim.fighters.map((f) => makeHudFighter(f.slot)),
       cameraPreset: this.cam.preset,
       graphicsEra: this.graphicsEra,
       hitboxesVisible: this.hitboxesVisible,

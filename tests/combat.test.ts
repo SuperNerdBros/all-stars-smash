@@ -162,13 +162,18 @@ test('per-slot overrides merge over the template', () => {
 
 function makeSim(): SimulationState {
   const bp = BUILTIN_FIGHTERS[0];
-  const sim = createSimulationState([bp, bp], [0, 1], ['human', 'human'], 'normal', STAGE_MANIFESTS[0], 3);
+  const sim = createSimulationState(
+    [0, 1].map((i) => ({ blueprint: bp, paletteIndex: i, controlType: 'human' as const })),
+    'normal',
+    STAGE_MANIFESTS[0],
+    3,
+  );
   for (const f of sim.fighters) f.invulnTimer = 0;
   return sim;
 }
 
 function settle(sim: SimulationState, frames = 90): void {
-  for (let i = 0; i < frames; i++) stepSimulation(sim, 0, 0);
+  for (let i = 0; i < frames; i++) stepSimulation(sim, [0, 0]);
 }
 
 test('fighters land and stand on the stage', () => {
@@ -180,13 +185,13 @@ test('fighters land and stand on the stage', () => {
 test('flick + A in sim starts fsmash; held direction + A starts ftilt', () => {
   const sim = makeSim();
   settle(sim);
-  stepSimulation(sim, INPUT_RIGHT | INPUT_ATTACK, 0);
+  stepSimulation(sim, [INPUT_RIGHT | INPUT_ATTACK, 0]);
   assert.equal(sim.fighters[0].moveKey, 'fsmash');
 
   const sim2 = makeSim();
   settle(sim2);
-  for (let i = 0; i < 8; i++) stepSimulation(sim2, INPUT_RIGHT, 0);
-  stepSimulation(sim2, INPUT_RIGHT | INPUT_ATTACK, 0);
+  for (let i = 0; i < 8; i++) stepSimulation(sim2, [INPUT_RIGHT, 0]);
+  stepSimulation(sim2, [INPUT_RIGHT | INPUT_ATTACK, 0]);
   const k = sim2.fighters[0].moveKey;
   assert.ok(k === 'ftilt' || k === 'dashAttack', `got ${k}`);
 });
@@ -199,7 +204,7 @@ test('short hop vs full hop', () => {
     const y0 = f.y;
     let minY = y0;
     for (let i = 0; i < 60; i++) {
-      stepSimulation(sim, i < holdFrames ? INPUT_JUMP : 0, 0);
+      stepSimulation(sim, [i < holdFrames ? INPUT_JUMP : 0, 0]);
       minY = Math.min(minY, f.y);
     }
     return y0 - minY;
@@ -213,13 +218,96 @@ test('grab → up throw launches and stales', () => {
   const [a, b] = sim.fighters;
   b.x = a.x + 14;
   a.facing = 1;
-  stepSimulation(sim, INPUT_GRAB, 0);
-  for (let i = 0; i < 12 && a.holdingSlot === null; i++) stepSimulation(sim, 0, 0);
+  stepSimulation(sim, [INPUT_GRAB, 0]);
+  for (let i = 0; i < 12 && a.holdingSlot === null; i++) stepSimulation(sim, [0, 0]);
   assert.equal(a.holdingSlot, 1, 'grab connected');
-  stepSimulation(sim, INPUT_UP, 0);
-  for (let i = 0; i < 40; i++) stepSimulation(sim, 0, 0);
+  stepSimulation(sim, [INPUT_UP, 0]);
+  for (let i = 0; i < 40; i++) stepSimulation(sim, [0, 0]);
   assert.equal(a.holdingSlot, null);
   assert.ok(b.damagePct > 0);
   assert.ok(b.y < a.y - 10, 'thrown upward');
   assert.equal(a.staleQueue[0], 'uthrow');
+});
+
+test('8-fighter free-for-all runs to a single winner', () => {
+  const specs = Array.from({ length: 8 }, (_, i) => ({
+    blueprint: BUILTIN_FIGHTERS[i % BUILTIN_FIGHTERS.length],
+    paletteIndex: 0,
+    controlType: 'cpu' as const,
+  }));
+  const sim = createSimulationState(specs, 'hard', STAGE_MANIFESTS[0], 1);
+  const xs = new Set(sim.fighters.map((f) => Math.round(f.x)));
+  assert.equal(xs.size, 8, 'distinct spawn points');
+  let t = 0;
+  for (; t < 60 * 60 * 6 && sim.winnerSlot === null; t++) {
+    stepSimulation(sim, []);
+    sim.pendingSfx.length = 0;
+  }
+  assert.notEqual(sim.winnerSlot, null, 'match ended');
+  assert.equal(sim.fighters.filter((f) => f.stocks > 0).length, 1);
+  const kos = sim.fighters.reduce((n, f) => n + f.kosScored, 0);
+  assert.ok(kos >= 1, 'KOs credited');
+});
+
+// ── Determinism & rollback ──────────────────────────────────────
+
+import { checksum, clearSideEffects, loadState, saveState } from '../lib/net/rollbackState';
+
+function scriptedMask(slot: number, t: number): number {
+  // Cheap deterministic "player": cycles through moves and movement.
+  const seq = [INPUT_RIGHT, INPUT_RIGHT | INPUT_ATTACK, 0, INPUT_JUMP, INPUT_DOWN | INPUT_ATTACK, INPUT_UP | INPUT_ATTACK, 1, INPUT_GRAB];
+  return seq[(Math.floor(t / 7) + slot * 3) % seq.length];
+}
+
+function fourWay(): SimulationState {
+  const specs = [0, 1, 2, 3].map((i) => ({
+    blueprint: BUILTIN_FIGHTERS[i * 3],
+    paletteIndex: 0,
+    controlType: (i < 2 ? 'human' : 'cpu') as 'human' | 'cpu',
+  }));
+  return createSimulationState(specs, 'hard', STAGE_MANIFESTS[1], 3);
+}
+
+test('identical inputs give identical state (lockstep-safe)', () => {
+  const a = fourWay();
+  const b = fourWay();
+  for (let t = 0; t < 3000; t++) {
+    const masks = [scriptedMask(0, t), scriptedMask(1, t)];
+    stepSimulation(a, masks);
+    stepSimulation(b, masks);
+    if (t % 100 === 0) assert.equal(checksum(a), checksum(b), `diverged at ${t}`);
+  }
+  assert.equal(checksum(a), checksum(b));
+});
+
+test('save → advance → load → replay reproduces the same frames', () => {
+  const sim = fourWay();
+  for (let t = 0; t < 600; t++) stepSimulation(sim, [scriptedMask(0, t), scriptedMask(1, t)]);
+  const snap = saveState(sim);
+  const forward: number[] = [];
+  for (let t = 600; t < 660; t++) {
+    stepSimulation(sim, [scriptedMask(0, t), scriptedMask(1, t)]);
+    forward.push(checksum(sim));
+  }
+  loadState(sim, snap);
+  clearSideEffects(sim);
+  for (let t = 600; t < 660; t++) {
+    stepSimulation(sim, [scriptedMask(0, t), scriptedMask(1, t)]);
+    assert.equal(checksum(sim), forward[t - 600], `replay frame ${t}`);
+  }
+});
+
+test('snapshot survives JSON (host → guest resync)', () => {
+  const sim = fourWay();
+  for (let t = 0; t < 400; t++) stepSimulation(sim, [scriptedMask(0, t), scriptedMask(1, t)]);
+  const wire = JSON.parse(JSON.stringify(saveState(sim)));
+  const other = fourWay();
+  loadState(other, wire);
+  assert.equal(checksum(other), checksum(sim));
+  for (let t = 400; t < 700; t++) {
+    const m = [scriptedMask(0, t), scriptedMask(1, t)];
+    stepSimulation(sim, m);
+    stepSimulation(other, m);
+  }
+  assert.equal(checksum(other), checksum(sim));
 });

@@ -51,14 +51,14 @@ export function ArcadeShell(): React.ReactElement {
     });
   } else if (screen === 'VS_INTRO') {
     screenEl = React.createElement(VsIntroScreen, {
-      fighters: [p1Fighter, p2Fighter],
+      fighters: shell.matchFighters,
       matchConfig,
       stage,
       onComplete: () => shell.setScreen('PLAYING'),
     });
   } else if (screen === 'PLAYING') {
     screenEl = React.createElement(MatchViewport, {
-      fighters: [p1Fighter, p2Fighter],
+      fighters: shell.matchFighters,
       matchConfig,
       stage,
       musicOpen,
@@ -71,7 +71,7 @@ export function ArcadeShell(): React.ReactElement {
   } else if (screen === 'VICTORY' && lastMatchHud) {
     screenEl = React.createElement(VictoryScreen, {
       hud: lastMatchHud,
-      fighters: [p1Fighter, p2Fighter],
+      fighters: shell.matchFighters,
       matchConfig,
       stage,
       onRematch: shell.launchVsIntro,
@@ -82,7 +82,7 @@ export function ArcadeShell(): React.ReactElement {
     screenEl = React.createElement(StageSelect, {
       selectedStageId: matchConfig.stageId,
       p1Summary: `P1 ${p1Fighter.name}`,
-      p2Summary: `P2 ${p2Fighter.name} (${matchConfig.players[1].controlType === 'cpu' ? 'CPU' : '2P'})`,
+      p2Summary: matchConfig.players.length > 2 ? `+${matchConfig.players.length - 1} opponents` : `P2 ${p2Fighter.name} (${matchConfig.players[1].controlType === 'cpu' ? 'CPU' : '2P'})`,
       stocks: matchConfig.stocks,
       graphicsEra: matchConfig.graphicsEra,
       musicOpen,
