@@ -1,5 +1,6 @@
 'use client';
 
+import { ComicLogo } from '../molecules/comicLogo';
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
@@ -50,10 +51,6 @@ const MENU_ITEMS: ReadonlyArray<MenuItemSpec> = [
   { id: 'controls', label: 'CONTROLS', sublabel: 'P1, Local 2P & 2.5D camera keys', accent: '#22C55E' },
 ];
 
-const LOGO_STROKE_STYLE: React.CSSProperties = {
-  textShadow:
-    '4px 4px 0 #000, -4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 0 10px 24px rgba(0,0,0,0.92)',
-};
 
 function renderMenuIcon(id: MenuActionId): React.ReactElement {
   if (id === 'play') return React.createElement(Play, { className: 'w-5 h-5 fill-current' });
@@ -165,7 +162,7 @@ export function TitleScreen(props: TitleScreenProps): React.ReactElement {
           'relative z-20 flex-1 flex flex-col lg:flex-row items-center lg:items-center justify-center lg:justify-between gap-8 px-6 sm:px-12 lg:px-16 py-6 min-h-0',
       },
 
-      // Left/Center Official Game Emblem: SUPER KNERD BROS: BIT BEAT
+      // Left/Center comic-book game emblem (see lib/branding.ts)
       React.createElement(
         motion.div,
         {
@@ -175,58 +172,7 @@ export function TitleScreen(props: TitleScreenProps): React.ReactElement {
           className: 'relative flex flex-col items-center lg:items-start text-center lg:text-left max-w-xl',
         },
 
-        // Iconic Smash Cross-Slash Flare Behind Logo
-        React.createElement('div', {
-          'aria-hidden': 'true',
-          className:
-            'pointer-events-none absolute -left-8 -top-10 w-64 h-64 rounded-full border-[14px] border-white/15 opacity-60',
-          style: {
-            boxShadow: 'inset 0 0 40px rgba(250,204,21,0.22)',
-          },
-        }),
-        React.createElement(
-          'span',
-          {
-            className:
-              'font-display font-black italic uppercase tracking-[0.28em] text-xl sm:text-2xl text-[#FDE047] leading-none mb-1',
-            style: LOGO_STROKE_STYLE,
-          },
-          'SUPER',
-        ),
-        React.createElement(
-          'h1',
-          {
-            className:
-              'font-display font-black italic uppercase text-5xl sm:text-7xl xl:text-[84px] leading-[0.88] tracking-tight text-white',
-            style: LOGO_STROKE_STYLE,
-          },
-          'KNERD BROS',
-        ),
-        React.createElement(
-          'div',
-          {
-            className:
-              'mt-3 -skew-x-12 inline-flex items-center gap-3 px-6 sm:px-8 py-2 bg-gradient-to-r from-[#FACC15] via-[#F97316] to-[#DC2626] border-[4px] border-black shadow-[7px_7px_0_#000]',
-          },
-          React.createElement(
-            'span',
-            {
-              className:
-                'skew-x-12 font-display font-black italic uppercase text-2xl sm:text-4xl tracking-[0.12em] text-white leading-none whitespace-nowrap',
-              style: { textShadow: '3px 3px 0 #000, -2px -2px 0 #000' },
-            },
-            'BIT BEAT',
-          ),
-        ),
-        React.createElement(
-          'div',
-          {
-            className:
-              'mt-4 font-mono text-[11px] sm:text-xs font-bold uppercase tracking-[0.22em] text-white/90',
-            style: { textShadow: '2px 2px 0 #000' },
-          },
-          '23 RETRO LEGENDS · 35 EPIC 2.5D ARENAS · 3-CPU LIVE ATTRACT',
-        ),
+        React.createElement(ComicLogo),
       ),
 
       // Right Console Main Menu Stack

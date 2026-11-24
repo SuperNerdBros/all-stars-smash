@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import {
   Cpu,
   Gamepad2,
+  Github,
   Music,
   Shuffle,
   Sliders,
@@ -15,6 +16,7 @@ import {
 import type { GraphicsEra } from '../../types/fighter';
 import type { CpuDifficulty, MatchConfig } from '../../types/protocol';
 import { chiptuneAudio } from '../../io/chiptuneAudio';
+import { BRAND } from '../../branding';
 
 export interface TitleSettingsOverlayProps {
   mode: 'settings' | 'controls';
@@ -306,6 +308,19 @@ export function TitleSettingsOverlay(props: TitleSettingsOverlayProps): React.Re
         'div',
         { className: 'p-5' },
         mode === 'settings' ? renderSettingsBody(props, sfxMuted, handleToggleSfx) : renderControlsBody(),
+      ),
+      // Project link
+      React.createElement(
+        'a',
+        {
+          href: BRAND.githubUrl,
+          target: '_blank',
+          rel: 'noopener noreferrer',
+          className:
+            'flex items-center justify-center gap-2 px-5 py-2.5 border-t-[3px] border-black bg-black/40 hover:bg-black/70 font-display font-black uppercase text-xs tracking-wider text-white/85 hover:text-[#FACC15]',
+        },
+        React.createElement(Github, { className: 'w-4 h-4' }),
+        'Source on GitHub · xopherdeep/retro-ssb',
       ),
     ),
   );
