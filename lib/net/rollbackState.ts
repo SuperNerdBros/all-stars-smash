@@ -19,7 +19,6 @@ export interface SimSnapshot {
 }
 
 function snapFighter(f: FighterEntity): FighterSnap {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { blueprint, moves, ...rest } = f;
   return {
     ...rest,

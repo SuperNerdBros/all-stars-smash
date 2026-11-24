@@ -9,11 +9,24 @@ import type {
 import type { FighterBlueprint, GraphicsEra } from '../types/fighter';
 import type { StageManifest } from '../types/stage';
 import { SimulationHost } from './simulationHost';
+import type { NetStart } from '../net/netTypes';
+
+export type NetOutMessage = Extract<WorkerOutMessage, { type: `NET_${string}` }>;
+export type NetInMessage = Extract<WorkerInMessage, { type: `NET_${string}` }>;
 
 export interface WorkerBridgeCallbacks {
   onReady?: () => void;
   onHudSnapshot: (snapshot: HudSnapshot) => void;
   onError?: (message: string) => void;
+  /** Online-play traffic from the simulation (local inputs, checksums, sync replies). */
+  onNet?: (msg: NetOutMessage) => void;
+}
+
+function dispatch(data: WorkerOutMessage, callbacks: WorkerBridgeCallbacks): void {
+  if (data.type === 'READY') callbacks.onReady?.();
+  else if (data.type === 'HUD_SNAPSHOT') callbacks.onHudSnapshot(data.snapshot);
+  else if (data.type === 'ERROR') callbacks.onError?.(data.message);
+  else callbacks.onNet?.(data);
 }
 
 /**
@@ -51,9 +64,7 @@ export class EngineWorkerBridge {
     const freshCanvas = this.createFreshCanvas(this.hostEl);
     const host = new SimulationHost((data) => {
       if (this.destroyed) return;
-      if (data.type === 'READY') callbacks.onReady?.();
-      else if (data.type === 'HUD_SNAPSHOT') callbacks.onHudSnapshot(data.snapshot);
-      else if (data.type === 'ERROR') callbacks.onError?.(data.message);
+      dispatch(data, callbacks);
     });
     this.fallbackHost = host;
     host.attachCanvasDirect(freshCanvas, this.lastWidth, this.lastHeight);
@@ -93,10 +104,7 @@ export class EngineWorkerBridge {
 
         worker.onmessage = (event: MessageEvent<WorkerOutMessage>) => {
           if (this.destroyed) return;
-          const data = event.data;
-          if (data.type === 'READY') callbacks.onReady?.();
-          else if (data.type === 'HUD_SNAPSHOT') callbacks.onHudSnapshot(data.snapshot);
-          else if (data.type === 'ERROR') callbacks.onError?.(data.message);
+          dispatch(event.data, callbacks);
         };
 
         worker.onerror = () => {
@@ -131,12 +139,18 @@ export class EngineWorkerBridge {
     stage: StageManifest;
     stocks: number;
     graphicsEra: GraphicsEra;
+    net?: NetStart;
   }): void {
     this.pendingStartParams = params;
     this.post({
       type: 'START_MATCH',
       ...params,
     });
+  }
+
+  /** Forwards online-play traffic into the simulation. */
+  public sendNet(msg: NetInMessage): void {
+    this.post(msg);
   }
 
   public sendInputs(masks: number[]): void {

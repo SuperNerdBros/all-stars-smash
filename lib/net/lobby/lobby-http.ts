@@ -37,7 +37,6 @@ export const isSeatCount = (value: unknown): value is number => isWhole(value, M
 
 /** Player names: control characters stripped, trimmed, capped. */
 export function cleanName(raw: string): string {
-  // eslint-disable-next-line no-control-regex
   return [...raw.replace(/[\u0000-\u001f\u007f-\u009f]/g, '').trim()].slice(0, NAME_MAX_LENGTH).join('');
 }
 

@@ -14,6 +14,7 @@ import { getStageById, STAGE_MANIFESTS } from '../stages/manifests';
 export type ScreenState =
   | 'DISCLAIMER'
   | 'TITLE'
+  | 'ONLINE'
   | 'CHARACTER_SELECT'
   | 'STAGE_SELECT'
   | 'VS_INTRO'

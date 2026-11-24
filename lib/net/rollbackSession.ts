@@ -58,6 +58,8 @@ export class RollbackSession {
   private readonly sums = new Map<number, number>();
   private events: SeatEvent[] = [];
   private rollbackTo = Infinity;
+  /** Highest frame any remote input has arrived for (to detect falling behind). */
+  maxRemoteFrame = -1;
   readonly stats: RollbackStats = { frame: 0, confirmed: -1, rollbacks: 0, rolledBackFrames: 0, stalls: 0 };
 
   constructor(sim: SimulationState, opts: RollbackOptions) {
@@ -93,6 +95,7 @@ export class RollbackSession {
     if (this.localSeats.includes(seat) || seat >= this.inputs.length) return;
     if (this.inputs[seat][frame] !== undefined) return;
     this.store(seat, frame, mask);
+    if (frame > this.maxRemoteFrame) this.maxRemoteFrame = frame;
     const fedPrediction = frame < this.frame && this.used[seat][frame] !== undefined && this.used[seat][frame] !== mask;
     if (fedPrediction) this.rollbackTo = Math.min(this.rollbackTo, frame);
   }
@@ -107,6 +110,65 @@ export class RollbackSession {
       this.recomputeContiguous(ev.seat);
     }
     if (ev.frame < this.frame) this.rollbackTo = Math.min(this.rollbackTo, ev.frame);
+  }
+
+  hasInput(seat: number, frame: number): boolean {
+    return this.inputs[seat]?.[frame] !== undefined;
+  }
+
+  /**
+   * Neutral inputs for this peer's own seats over any frames it never sent (e.g. right after joining),
+   * so nobody waits forever on them. Returns what was filled, to broadcast.
+   */
+  fillLocalGap(): [number, number, number][] {
+    const out: [number, number, number][] = [];
+    const until = this.frame + this.inputDelay;
+    for (const seat of this.localSeats) {
+      for (let f = Math.max(0, this.contiguous[seat] + 1); f < until; f++) {
+        if (this.inputs[seat][f] === undefined) {
+          this.store(seat, f, 0);
+          out.push([seat, f, 0]);
+        }
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Host only: schedules a seat change `lead` frames from now. When a human seat leaves, its missing
+   * inputs up to the change are filled with neutral so the match can't deadlock on them.
+   */
+  scheduleSeat(seat: number, controlType: PlayerControlType, lead: number, eliminate = false): { ev: SeatEvent; fills: [number, number, number][] } {
+    const frame = this.frame + Math.max(this.inputDelay + 1, lead);
+    const fills: [number, number, number][] = [];
+    const leavingHuman = this.sim.fighters[seat]?.controlType === 'human' && controlType !== 'human';
+    if (leavingHuman) {
+      for (let f = Math.max(0, this.contiguous[seat] + 1); f < frame; f++) {
+        if (this.inputs[seat][f] === undefined) {
+          this.store(seat, f, 0);
+          fills.push([seat, f, 0]);
+        }
+      }
+    }
+    const ev: SeatEvent = { frame, seat, controlType, ...(eliminate ? { eliminate } : {}) };
+    this.addEvent(ev);
+    return { ev, fills };
+  }
+
+  /** State + confirmed inputs + events for a peer joining or resyncing (taken at the confirmed frame). */
+  syncState(): { frame: number; snapshot: SimSnapshot; inputs: [number, number, number][]; events: SeatEvent[] } {
+    let frame = Math.min(this.frame, this.confirmedFrame() + 1);
+    let snapshot = frame === this.frame ? saveState(this.sim) : this.snapshotAt(frame);
+    if (!snapshot) {
+      frame = this.frame;
+      snapshot = saveState(this.sim);
+    }
+    return {
+      frame,
+      snapshot,
+      inputs: this.inputHistory(frame).map((i) => [i.seat, i.frame, i.mask] as [number, number, number]),
+      events: this.pendingEvents(frame),
+    };
   }
 
   /** Lowest frame every remote human seat has confirmed. */

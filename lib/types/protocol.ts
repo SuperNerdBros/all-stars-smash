@@ -1,5 +1,6 @@
 import type { FighterBlueprint, GraphicsEra } from './fighter';
 import type { StageManifest } from './stage';
+import type { InputItem, NetStart, NetStats, SeatEvent, SyncState } from '../net/netTypes';
 
 /** 16-bit input bitmask constants shared across main thread and worker */
 export const INPUT_LEFT = 1 << 0;
@@ -82,6 +83,8 @@ export interface HudSnapshot {
   paused: boolean;
   matchTimeTicks: number;
   winnerSlot: number | null;
+  /** Online matches only. */
+  net?: NetStats;
   sfxQueue: SfxEvent[];
 }
 
@@ -101,7 +104,15 @@ export type WorkerInMessage =
       stage: StageManifest;
       stocks: number;
       graphicsEra: GraphicsEra;
+      /** Present for online matches: runs the rollback session instead of plain local stepping. */
+      net?: NetStart;
     }
+  | { type: 'NET_INPUTS'; matchId: number; items: InputItem[] }
+  | { type: 'NET_EVENT'; matchId: number; ev: SeatEvent; fills: InputItem[] }
+  | { type: 'NET_CHECK'; matchId: number; frame: number; hash: number }
+  | { type: 'NET_RESYNC'; matchId: number; sync: SyncState }
+  | { type: 'NET_SYNC_REQUEST'; reqId: number }
+  | { type: 'NET_SCHEDULE_SEAT'; reqId: number; seat: number; controlType: PlayerControlType; lead: number; eliminate?: boolean }
   | {
       type: 'INPUT_STATE';
       /** Input mask per seat; CPU seats ignore theirs. */
@@ -147,4 +158,9 @@ export type WorkerOutMessage =
   | {
       type: 'ERROR';
       message: string;
-    };
+    }
+  | { type: 'NET_LOCAL'; matchId: number; items: InputItem[] }
+  | { type: 'NET_SUM'; matchId: number; frame: number; hash: number }
+  | { type: 'NET_DESYNC'; matchId: number; frame: number }
+  | { type: 'NET_SYNC'; reqId: number; sync: SyncState | null }
+  | { type: 'NET_SEAT_SCHEDULED'; reqId: number; ev: SeatEvent; fills: InputItem[] };

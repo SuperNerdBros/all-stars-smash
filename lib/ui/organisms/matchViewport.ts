@@ -12,6 +12,7 @@ import { useVictoryTransition } from '../../hooks/useVictoryTransition';
 import { ArcadeButton } from '../atoms/button';
 import { CameraSwitcher } from '../molecules/cameraSwitcher';
 import { HudFighterCard } from '../molecules/hudFighterCard';
+import type { NetRoom } from '../../net/netRoom';
 
 export interface MatchViewportProps {
   fighters: FighterBlueprint[];
@@ -23,6 +24,12 @@ export interface MatchViewportProps {
   onMatchComplete: (hud: HudSnapshot) => void;
   onExitToCharacterSelect: () => void;
   onExitToStageSelect: () => void;
+  /** Online room: the viewport attaches to it instead of starting a local match. */
+  online?: NetRoom | null;
+  /** Extra UI layered over the match (the online room panel). */
+  overlay?: React.ReactElement | null;
+  /** Per-seat HUD labels (player names online). */
+  seatLabels?: string[];
 }
 
 const GAME_STROKE_STYLE: React.CSSProperties = {
@@ -156,6 +163,7 @@ function renderHudCards(
   fighters: FighterBlueprint[],
   activeEra: GraphicsEra,
   matchConfig: MatchConfig,
+  seatLabels?: string[],
 ): React.ReactElement | null {
   if (!hud) return null;
   const crowded = hud.fighters.length > 4;
@@ -175,7 +183,7 @@ function renderHudCards(
         snapshot: snap,
         fighter,
         graphicsEra: activeEra,
-        controlLabel: seatControlLabel(seat, snap.slot),
+        controlLabel: seatLabels?.[snap.slot] || seatControlLabel(seat, snap.slot),
       });
     }),
   );
@@ -251,6 +259,9 @@ export function MatchViewport(props: MatchViewportProps): React.ReactElement {
     onMatchComplete,
     onExitToCharacterSelect,
     onExitToStageSelect,
+    online,
+    overlay,
+    seatLabels,
   } = props;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -263,6 +274,7 @@ export function MatchViewport(props: MatchViewportProps): React.ReactElement {
     matchConfig,
     stage,
     onToggleEra,
+    online,
   );
   const model = deriveViewportModel(state.hud, matchConfig);
   useVictoryTransition(model.winnerSlot, state.hud, onMatchComplete);
@@ -297,7 +309,8 @@ export function MatchViewport(props: MatchViewportProps): React.ReactElement {
       onToggleMusic,
       onPause: handleTogglePause,
     }),
-    renderHudCards(state.hud, fighters, model.activeEra, matchConfig),
+    renderHudCards(state.hud, fighters, model.activeEra, matchConfig, seatLabels),
+    overlay ?? null,
     renderActiveOverlay({
       engineError: state.engineError,
       model,

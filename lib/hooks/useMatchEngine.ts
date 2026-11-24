@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { FighterBlueprint, GraphicsEra } from '../types/fighter';
 import type { CameraPreset, HudSnapshot, MatchConfig } from '../types/protocol';
+import type { NetRoom } from '../net/netRoom';
 import type { StageManifest } from '../types/stage';
 import { EngineWorkerBridge } from '../engine/workerBridge';
 import { MainThreadInputPoller } from '../io/inputPoller';
@@ -28,6 +29,8 @@ export function useMatchEngine(
   matchConfig: MatchConfig,
   stage: StageManifest,
   onToggleEra: () => void,
+  /** Online room driving this viewport (it starts matches itself and owns the netcode traffic). */
+  online?: NetRoom | null,
 ) {
   const runtimeRef = useRef<RuntimeRefs>({
     bridge: null,
@@ -55,6 +58,8 @@ export function useMatchEngine(
   const seatKey = matchConfig.players
     .map((p, i) => `${fighters[i]?.id}:${p.paletteIndex}:${p.controlType}`)
     .join('|');
+  // Online: the room restarts matches on the same bridge, so keep the canvas for the room's lifetime.
+  const engineKey = online ? 'online' : `${seatKey}|${cpuDiff}|${matchConfig.stocks}|${stage.id}`;
   const stocks = matchConfig.stocks;
   const stageId = stage.id;
 
@@ -72,6 +77,10 @@ export function useMatchEngine(
 
     bridge.mount(canvasHost, initW, initH, {
       onReady: () => {
+        if (online) {
+          online.attach(bridge);
+          return;
+        }
         bridge.startMatch({
           fighters,
           paletteIndices,
@@ -89,6 +98,7 @@ export function useMatchEngine(
           chiptuneAudio.playSfx(sfx);
         }
       },
+      onNet: (msg) => online?.onNet(msg),
       onError: (msg) => {
         setState((prev) => ({ ...prev, engineError: msg }));
       },
@@ -109,6 +119,8 @@ export function useMatchEngine(
         runtimeRef.current.onToggleEra();
       },
       onTogglePause: () => {
+        // Online matches can't pause: everyone else would stall waiting on this player's inputs.
+        if (online) return;
         chiptuneAudio.playMenuTick();
         bridge.setPaused(!runtimeRef.current.isPaused);
       },
@@ -128,12 +140,13 @@ export function useMatchEngine(
     return () => {
       resizeObserver.disconnect();
       poller.stop();
+      online?.detach(bridge);
       bridge.destroy();
       runtimeRef.current.bridge = null;
     };
     // Intentionally keyed on primitive match identifiers so OffscreenCanvas transfer occurs once per match
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seatKey, cpuDiff, stocks, stageId]);
+  }, [engineKey, online]);
 
   const selectCamera = (preset: CameraPreset) => {
     chiptuneAudio.playMenuTick();
@@ -150,11 +163,16 @@ export function useMatchEngine(
       runtimeRef.current.bridge?.toggleHitboxes();
       return;
     }
+    if (online) return;
     runtimeRef.current.bridge?.setPaused(!runtimeRef.current.isPaused);
   };
 
   const restartMatch = () => {
     chiptuneAudio.playMenuConfirm();
+    if (online) {
+      online.nextMatch();
+      return;
+    }
     runtimeRef.current.bridge?.startMatch({
       fighters,
       paletteIndices,

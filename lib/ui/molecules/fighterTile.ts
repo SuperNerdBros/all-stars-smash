@@ -17,32 +17,6 @@ export interface FighterTileProps {
   onSelect: () => void;
 }
 
-const TILE_BACKDROPS: Record<string, string> = {
-  mario: 'linear-gradient(135deg, #EF4444 0%, #991B1B 58%, #1D4ED8 100%)',
-  'donkey-kong': 'linear-gradient(135deg, #D97706 0%, #92400E 58%, #451A03 100%)',
-  link: 'linear-gradient(135deg, #22C55E 0%, #15803D 58%, #0EA5E9 100%)',
-  samus: 'linear-gradient(135deg, #F97316 0%, #C2410C 58%, #7F1D1D 100%)',
-  kirby: 'linear-gradient(135deg, #F472B6 0%, #DB2777 62%, #831843 100%)',
-  luigi: 'linear-gradient(135deg, #16A34A 0%, #166534 58%, #1E3A8A 100%)',
-  bowser: 'linear-gradient(135deg, #EA580C 0%, #9A3412 55%, #166534 100%)',
-  megaman: 'linear-gradient(135deg, #38BDF8 0%, #0284C7 58%, #1E3A8A 100%)',
-  sonic: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 60%, #1E1B4B 100%)',
-  simon: 'linear-gradient(135deg, #B45309 0%, #7C2D12 58%, #3B0764 100%)',
-  'ryu-hayabusa': 'linear-gradient(135deg, #4F46E5 0%, #312E81 58%, #991B1B 100%)',
-  pit: 'linear-gradient(135deg, #38BDF8 0%, #0369A1 55%, #F59E0B 100%)',
-  'little-mac': 'linear-gradient(135deg, #10B981 0%, #065F46 58%, #111827 100%)',
-  'spiky-time': 'linear-gradient(135deg, #F97316 0%, #DC2626 50%, #1D4ED8 100%)',
-  'sir-ribbit': 'linear-gradient(135deg, #22C55E 0%, #15803D 52%, #B91C1C 100%)',
-  'tin-can': 'linear-gradient(135deg, #F59E0B 0%, #B45309 55%, #0E7490 100%)',
-  'cape-lord': 'linear-gradient(135deg, #9333EA 0%, #4C1D95 55%, #1E1B4B 100%)',
-  'moon-knight': 'linear-gradient(135deg, #6366F1 0%, #312E81 55%, #0F172A 100%)',
-  'jump-spear': 'linear-gradient(135deg, #2563EB 0%, #1E3A8A 55%, #991B1B 100%)',
-  'job-hopper': 'linear-gradient(135deg, #38BDF8 0%, #1D4ED8 55%, #B91C1C 100%)',
-  'esper-hair': 'linear-gradient(135deg, #EC4899 0%, #BE123C 55%, #059669 100%)',
-  'train-suplex': 'linear-gradient(135deg, #FACC15 0%, #EA580C 52%, #1D4ED8 100%)',
-  'laugh-clown': 'linear-gradient(135deg, #A855F7 0%, #DC2626 52%, #CA8A04 100%)',
-};
-
 const NAMEPLATE_SHADOW =
   '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 3px rgba(0,0,0,0.95)';
 
@@ -91,17 +65,15 @@ export function FighterTile(props: FighterTileProps): React.ReactElement {
   const activeIdx = resolveTilePaletteIndex(isP1, isP2, p1PaletteIndex, p2PaletteIndex);
   const safeIdx = activeIdx % Math.max(1, resolved.palettes.length);
   const palette = resolved.palettes[safeIdx]?.colors ?? resolved.palettes[0].colors;
-  const bgGradient =
-    TILE_BACKDROPS[fighter.id] ?? 'linear-gradient(135deg, #475569 0%, #1E293B 60%, #0F172A 100%)';
 
   return React.createElement(
     'button',
     {
       type: 'button',
       onClick: onSelect,
-      style: { backgroundImage: bgGradient },
       className: [
-        'group relative flex flex-col items-center justify-between overflow-hidden h-[70px] sm:h-[76px] lg:h-[78px] w-full cursor-pointer select-none transition-transform duration-100',
+        'group relative flex flex-col items-center justify-between overflow-hidden h-[54px] sm:h-[58px] lg:h-[60px] w-full cursor-pointer select-none transition-transform duration-100',
+        'border-[1.5px] border-black bg-gradient-to-b from-white/10 via-transparent to-black/50',
         'hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]',
         resolveRingStyle(isP1, isP2, p2ControlType),
       ].join(' '),
@@ -124,7 +96,7 @@ export function FighterTile(props: FighterTileProps): React.ReactElement {
         pixelChart: resolved.pixelChart,
         palette,
         animState: isP1 || isP2 ? 'walk' : 'idle',
-        sizePx: 50,
+        sizePx: 40,
         animate: true,
       }),
     ),
@@ -165,17 +137,14 @@ export function RandomFighterTile(props: RandomFighterTileProps): React.ReactEle
       type: 'button',
       onClick: props.onSelectRandom,
       title: 'Select Random Fighter',
-      style: {
-        backgroundImage: 'linear-gradient(135deg, #FDE047 0%, #EAB308 55%, #CA8A04 100%)',
-      },
       className:
-        'group relative flex flex-col items-center justify-center overflow-hidden h-[70px] sm:h-[76px] lg:h-[78px] w-full cursor-pointer select-none hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white',
+        'group relative flex flex-col items-center justify-center overflow-hidden h-[54px] sm:h-[58px] lg:h-[60px] w-full cursor-pointer select-none border-[1.5px] border-black bg-yellow-400/25 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white',
     },
     React.createElement(
       'span',
       {
         className:
-          'font-display font-black text-4xl sm:text-5xl text-white leading-none transition-transform duration-100 group-hover:scale-110',
+          'font-display font-black text-3xl sm:text-4xl text-white leading-none transition-transform duration-100 group-hover:scale-110',
         style: {
           textShadow:
             '2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 4px 6px rgba(0,0,0,0.6)',

@@ -5,6 +5,8 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Gamepad2,
+  Globe,
+  LogIn,
   Music,
   Paintbrush,
   Play,
@@ -25,6 +27,10 @@ export interface TitleScreenProps {
   matchConfig: MatchConfig;
   musicOpen: boolean;
   onPlay: () => void;
+  /** Host your own online room (CPUs fill the seats until people join). */
+  onPlayOnline: () => void;
+  /** Join by room code; empty string = quick join a public room. */
+  onJoinRoom: (code: string) => void;
   onQuickBrawl: () => void;
   onOpenPixelForge: () => void;
   onUpdateMatchConfig: (updater: (prev: MatchConfig) => MatchConfig) => void;
@@ -33,7 +39,7 @@ export interface TitleScreenProps {
   onShuffleAttract: () => void;
 }
 
-type MenuActionId = 'play' | 'quick' | 'forge' | 'settings' | 'controls';
+type MenuActionId = 'online' | 'join' | 'play' | 'quick' | 'forge' | 'settings' | 'controls';
 
 interface MenuItemSpec {
   id: MenuActionId;
@@ -44,7 +50,9 @@ interface MenuItemSpec {
 }
 
 const MENU_ITEMS: ReadonlyArray<MenuItemSpec> = [
-  { id: 'play', label: 'PLAY', sublabel: '23-Fighter Roster & 35 Arenas', accent: '#FACC15', primary: true },
+  { id: 'online', label: 'PLAY ONLINE', sublabel: 'Host a room · CPUs fight until friends join', accent: '#FACC15', primary: true },
+  { id: 'join', label: 'JOIN ROOM', sublabel: 'Enter a code, or quick-join an open room', accent: '#F97316' },
+  { id: 'play', label: 'LOCAL VERSUS', sublabel: 'Same-screen 2P or vs. CPU', accent: '#FDE047' },
   { id: 'quick', label: 'QUICK BRAWL', sublabel: 'Jump straight into this live arena', accent: '#EF4444' },
   { id: 'forge', label: 'PIXEL FORGE', sublabel: 'Sprite editor & #FF00FF importer', accent: '#38BDF8' },
   { id: 'settings', label: 'SETTINGS', sublabel: 'Era, stocks, CPU level & audio', accent: '#A855F7' },
@@ -53,6 +61,8 @@ const MENU_ITEMS: ReadonlyArray<MenuItemSpec> = [
 
 
 function renderMenuIcon(id: MenuActionId): React.ReactElement {
+  if (id === 'online') return React.createElement(Globe, { className: 'w-5 h-5' });
+  if (id === 'join') return React.createElement(LogIn, { className: 'w-5 h-5' });
   if (id === 'play') return React.createElement(Play, { className: 'w-5 h-5 fill-current' });
   if (id === 'quick') return React.createElement(Swords, { className: 'w-5 h-5' });
   if (id === 'forge') return React.createElement(Paintbrush, { className: 'w-5 h-5' });
@@ -81,6 +91,8 @@ export function TitleScreen(props: TitleScreenProps): React.ReactElement {
     matchConfig,
     musicOpen,
     onPlay,
+    onPlayOnline,
+    onJoinRoom,
     onQuickBrawl,
     onOpenPixelForge,
     onUpdateMatchConfig,
@@ -95,6 +107,11 @@ export function TitleScreen(props: TitleScreenProps): React.ReactElement {
   const runAction = (id: MenuActionId) => {
     chiptuneAudio.playMenuConfirm();
     const handlers: Record<MenuActionId, () => void> = {
+      online: onPlayOnline,
+      join: () => {
+        const typed = window.prompt('Room code (leave blank to quick-join an open room):', '');
+        if (typed !== null) onJoinRoom(typed.trim());
+      },
       play: onPlay,
       quick: onQuickBrawl,
       forge: onOpenPixelForge,

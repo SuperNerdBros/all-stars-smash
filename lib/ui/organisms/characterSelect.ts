@@ -322,7 +322,7 @@ export function CharacterSelect(props: CharacterSelectProps): React.ReactElement
         'div',
         {
           className:
-            'max-w-7xl mx-auto grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-[3px] bg-black border-[3px] border-black',
+            'max-w-7xl mx-auto roster-rainbow-grid grid grid-cols-5 sm:grid-cols-7 lg:grid-cols-10 xl:grid-cols-13 gap-0 border-[2px] border-black',
         },
         ...roster.map((fighter) =>
           React.createElement(FighterTile, {

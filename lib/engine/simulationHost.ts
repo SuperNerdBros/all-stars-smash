@@ -26,6 +26,8 @@ import {
   type SimulationState,
 } from './physics';
 import { SoftwareRenderer25D } from './renderer';
+import { RollbackSession } from '../net/rollbackSession';
+import type { InputItem, SyncState } from '../net/netTypes';
 
 const FIXED_STEP_MS = 1000 / 60;
 
@@ -46,6 +48,10 @@ export class SimulationHost {
   private bakedFighters: BakedFighterSprites[] | null = null;
 
   private masks: number[] = [];
+  /** Online match state (null for local play). */
+  private net: RollbackSession | null = null;
+  private netMatchId = 0;
+  private netIsHost = false;
   private paused = false;
   private hitboxesVisible = false;
 
@@ -119,8 +125,52 @@ export class SimulationHost {
         this.paused = false;
         this.masks = [];
         this.accumulatorMs = 0;
+        this.net = null;
+        if (msg.net) {
+          this.netMatchId = msg.net.matchId;
+          this.netIsHost = msg.net.isHost;
+          this.net = new RollbackSession(this.sim, { localSeats: msg.net.localSeats, inputDelay: msg.net.inputDelay });
+          if (msg.net.sync) this.applySync(msg.net.sync);
+        }
         this.startLoop();
         this.emitHudSnapshot();
+        break;
+      }
+      case 'NET_INPUTS': {
+        if (!this.net || msg.matchId !== this.netMatchId) break;
+        for (const [seat, frame, mask] of msg.items) this.net.addRemoteInput(seat, frame, mask);
+        break;
+      }
+      case 'NET_EVENT': {
+        if (!this.net || msg.matchId !== this.netMatchId) break;
+        for (const [seat, frame, mask] of msg.fills) this.net.addRemoteInput(seat, frame, mask);
+        this.net.addEvent(msg.ev);
+        if (msg.ev.controlType === 'human' && this.net.localSeats.includes(msg.ev.seat)) this.emitLocal(this.net.fillLocalGap());
+        break;
+      }
+      case 'NET_CHECK': {
+        if (!this.net || msg.matchId !== this.netMatchId) break;
+        const mine = this.net.checksumAt(msg.frame);
+        const settled = msg.frame <= this.net.confirmedFrame();
+        if (settled && mine !== undefined && mine !== msg.hash) {
+          this.emit({ type: 'NET_DESYNC', matchId: this.netMatchId, frame: msg.frame });
+        }
+        break;
+      }
+      case 'NET_RESYNC': {
+        if (!this.net || msg.matchId !== this.netMatchId) break;
+        this.applySync(msg.sync);
+        break;
+      }
+      case 'NET_SYNC_REQUEST': {
+        const sync = this.net ? this.toWireSync() : null;
+        this.emit({ type: 'NET_SYNC', reqId: msg.reqId, sync });
+        break;
+      }
+      case 'NET_SCHEDULE_SEAT': {
+        if (!this.net) break;
+        const { ev, fills } = this.net.scheduleSeat(msg.seat, msg.controlType, msg.lead, msg.eliminate);
+        this.emit({ type: 'NET_SEAT_SCHEDULED', reqId: msg.reqId, ev, fills });
         break;
       }
       case 'INPUT_STATE': {
@@ -219,7 +269,18 @@ export class SimulationHost {
         this.accumulatorMs += elapsed;
         let steps = 0;
         while (this.accumulatorMs >= FIXED_STEP_MS && steps < 4) {
-          stepSimulation(this.sim, this.masks);
+          if (this.net) {
+            if (!this.stepNet()) {
+              // Stalled waiting on a remote input: don't bank time, or we'd fast-forward later.
+              this.accumulatorMs = Math.min(this.accumulatorMs, FIXED_STEP_MS);
+              break;
+            }
+            // Fell behind the other peers (slow tab, background throttling): run one extra frame.
+            const behind = this.net.maxRemoteFrame - this.net.frame > this.net.inputDelay + 3;
+            if (behind) this.stepNet();
+          } else {
+            stepSimulation(this.sim, this.masks);
+          }
 
           if (this.sim.pendingShake > 0) {
             triggerCameraShake(this.cam, this.sim.pendingShake);
@@ -267,6 +328,46 @@ export class SimulationHost {
     this.scheduleNextTick();
   }
 
+  /** One online frame: schedule local inputs, advance the rollback session, publish checksums. */
+  private stepNet(): boolean {
+    const net = this.net;
+    if (!net) return false;
+    const target = net.frame + net.inputDelay;
+    const items: InputItem[] = [];
+    net.localSeats.forEach((seat, k) => {
+      if (net.hasInput(seat, target)) return;
+      const mask = this.masks[k] ?? 0;
+      net.addLocalInput(seat, mask);
+      items.push([seat, target, mask]);
+    });
+    this.emitLocal(items);
+    const advanced = net.advance();
+    if (advanced && this.netIsHost && net.frame % 30 === 0) {
+      const frame = net.confirmedFrame();
+      const hash = net.checksumAt(frame);
+      if (hash !== undefined) this.emit({ type: 'NET_SUM', matchId: this.netMatchId, frame, hash });
+    }
+    return advanced;
+  }
+
+  private emitLocal(items: InputItem[]): void {
+    if (items.length) this.emit({ type: 'NET_LOCAL', matchId: this.netMatchId, items });
+  }
+
+  private applySync(sync: SyncState): void {
+    const net = this.net;
+    if (!net) return;
+    net.resync(sync.frame, sync.snapshot);
+    for (const [seat, frame, mask] of sync.inputs) net.addRemoteInput(seat, frame, mask);
+    for (const ev of sync.events) net.addEvent(ev);
+    this.emitLocal(net.fillLocalGap());
+  }
+
+  private toWireSync(): SyncState {
+    const s = (this.net as RollbackSession).syncState();
+    return { frame: s.frame, snapshot: s.snapshot, inputs: s.inputs, events: s.events };
+  }
+
   private emitHudSnapshot(): void {
     if (!this.sim) return;
     const sfxQueue = this.sim.pendingSfx.splice(0, this.sim.pendingSfx.length);
@@ -296,6 +397,7 @@ export class SimulationHost {
       paused: this.paused,
       matchTimeTicks: this.sim.matchTimeTicks,
       winnerSlot: this.sim.winnerSlot,
+      ...(this.net ? { net: { ...this.net.stats } } : {}),
       sfxQueue,
     };
 

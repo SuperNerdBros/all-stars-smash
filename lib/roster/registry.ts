@@ -15,6 +15,15 @@ import { LITTLE_MAC_BLUEPRINT } from './fighters/littleMac';
 import { CHRONO_GANG_FIGHTERS } from './fighters/chronoGang';
 import { CRYSTAL_45_FIGHTERS } from './fighters/crystalFourFive';
 import { CRYSTAL_6_FIGHTERS } from './fighters/crystalSix';
+import { NINTENDO_ROYALTY_FIGHTERS } from './fighters/nintendoRoyalty';
+import { HYRULE_LEGENDS_FIGHTERS } from './fighters/hyruleLegends';
+import { NINTENDO_CLASSICS_FIGHTERS } from './fighters/nintendoClassics';
+import { NINTENDO_DEEP_CUTS_FIGHTERS } from './fighters/nintendoDeepCuts';
+import { SEGA_LEGENDS_FIGHTERS } from './fighters/segaLegends';
+import { ARCADE_LEGENDS_FIGHTERS } from './fighters/arcadeLegends';
+import { ARCADE_WARRIORS_FIGHTERS } from './fighters/arcadeWarriors';
+import { ACTION_HEROES_FIGHTERS } from './fighters/actionHeroes';
+import { NINETIES_ICONS_FIGHTERS } from './fighters/ninetiesIcons';
 import { clonePixelChart } from './chartParser';
 import {
   packFighterForStorage,
@@ -25,8 +34,9 @@ import {
 const STORAGE_KEY = 'pixel_brawl_25d_custom_fighters_v4';
 
 /**
- * Full 23-character retro cast (13 NES/SEGA classics + 4 Chrono Trigger + 6 Final Fantasy IV-VI).
- * Paired with the '?' Random tile on Character Select for an exact 8x3 (24-tile) Smash mosaic!
+ * Full 50-character 80s/90s retro cast (13 NES/SEGA classics + 4 Chrono Trigger + 6 Final Fantasy IV-VI
+ * + 27 iconic 80s/90s legends across Nintendo, SEGA, Arcade, Action, and 90s RPGs).
+ * Paired with the '?' Random tile on Character Select for a 51-tile Smash mosaic.
  */
 export const BUILTIN_FIGHTERS: readonly FighterBlueprint[] = [
   MARIO_BLUEPRINT,
@@ -45,6 +55,15 @@ export const BUILTIN_FIGHTERS: readonly FighterBlueprint[] = [
   ...CHRONO_GANG_FIGHTERS,
   ...CRYSTAL_45_FIGHTERS,
   ...CRYSTAL_6_FIGHTERS,
+  ...NINTENDO_ROYALTY_FIGHTERS,
+  ...HYRULE_LEGENDS_FIGHTERS,
+  ...NINTENDO_CLASSICS_FIGHTERS,
+  ...NINTENDO_DEEP_CUTS_FIGHTERS,
+  ...SEGA_LEGENDS_FIGHTERS,
+  ...ARCADE_LEGENDS_FIGHTERS,
+  ...ARCADE_WARRIORS_FIGHTERS,
+  ...ACTION_HEROES_FIGHTERS,
+  ...NINETIES_ICONS_FIGHTERS,
 ];
 
 export function cloneFighterBlueprint(src: FighterBlueprint): FighterBlueprint {

@@ -12,6 +12,9 @@ import { VictoryScreen } from '../organisms/victoryScreen';
 import { PixelForgeDrawer } from '../organisms/pixelForgeDrawer';
 import { PngImporterModal } from '../organisms/pngImporterModal';
 import { SoundCloudMusicBar } from '../molecules/soundCloudMusicBar';
+import { OnlineMatchScreen } from '../organisms/onlineMatchScreen';
+import { useOnlineRoom } from '../../hooks/useOnlineRoom';
+import { joinCodeFromUrl } from '../../net/playApi';
 
 export function ArcadeShell(): React.ReactElement {
   const shell = useArcadeShellState();
@@ -29,6 +32,24 @@ export function ArcadeShell(): React.ReactElement {
     musicOpen,
     musicAutoStart,
   } = shell;
+  const online = useOnlineRoom(matchConfig, matchConfig.graphicsEra);
+  const goOnline = (start: () => unknown) => {
+    start();
+    shell.setScreen('ONLINE');
+  };
+  const leaveOnline = () => {
+    online.leave();
+    shell.setScreen('TITLE');
+  };
+  // Opened from an invite link: join that room as soon as the player is past the disclaimer.
+  const autoJoined = React.useRef(false);
+  React.useEffect(() => {
+    if (autoJoined.current || screen !== 'TITLE') return;
+    autoJoined.current = true;
+    const code = joinCodeFromUrl();
+    if (code) goOnline(() => online.join(code));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
 
   let screenEl: React.ReactElement;
   if (screen === 'DISCLAIMER') {
@@ -42,6 +63,8 @@ export function ArcadeShell(): React.ReactElement {
       matchConfig,
       musicOpen,
       onPlay: () => shell.setScreen('CHARACTER_SELECT'),
+      onPlayOnline: () => goOnline(online.host),
+      onJoinRoom: (code: string) => goOnline(() => online.join(code)),
       onQuickBrawl: shell.startQuickBrawl,
       onOpenPixelForge: () => shell.setForgeFighterId(p1Fighter.id),
       onUpdateMatchConfig: shell.setMatchConfig,
@@ -49,6 +72,24 @@ export function ArcadeShell(): React.ReactElement {
       onToggleMusic: shell.toggleMusic,
       onShuffleAttract: shell.shuffleAttract,
     });
+  } else if (screen === 'ONLINE' && online.room && online.view) {
+    screenEl = React.createElement(OnlineMatchScreen, {
+      room: online.room,
+      view: online.view,
+      roster,
+      graphicsEra: matchConfig.graphicsEra,
+      musicOpen,
+      onToggleEra: shell.toggleEra,
+      onToggleMusic: shell.toggleMusic,
+      onLeave: leaveOnline,
+    });
+  } else if (screen === 'ONLINE') {
+    screenEl = React.createElement(
+      'div',
+      { className: 'fixed inset-0 flex flex-col items-center justify-center gap-4 bg-[#070B16] text-white font-display font-black uppercase' },
+      React.createElement('div', { className: 'text-2xl animate-pulse' }, online.error ?? 'Finding a room…'),
+      React.createElement('button', { type: 'button', onClick: leaveOnline, className: 'px-4 py-2 bg-[#7F1D1D] border-2 border-black text-sm cursor-pointer' }, 'Back'),
+    );
   } else if (screen === 'VS_INTRO') {
     screenEl = React.createElement(VsIntroScreen, {
       fighters: shell.matchFighters,
@@ -113,7 +154,7 @@ export function ArcadeShell(): React.ReactElement {
       ? React.createElement(SoundCloudMusicBar, {
           stage,
           isOpen: musicOpen,
-          isInMatch: screen === 'PLAYING',
+          isInMatch: screen === 'PLAYING' || screen === 'ONLINE',
           autoStart: musicAutoStart,
           onToggleOpen: shell.toggleMusic,
         })
