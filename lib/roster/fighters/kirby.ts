@@ -401,9 +401,10 @@ const SNES_PALETTES: PalettePreset[] = [
 
 export const KIRBY_BLUEPRINT: FighterBlueprint = {
   id: 'kirby',
-  name: 'Puffball',
+  name: 'Kirby',
+  nickname: 'Puffball',
   era: 'NES',
-  originTag: 'Dream Land',
+  originTag: "Kirby's Adventure",
   archetype: 'floaty-puff',
   archetypeLabel: '5-Jump Aerial Puff',
   gridSize: 16,

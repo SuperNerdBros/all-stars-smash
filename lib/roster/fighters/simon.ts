@@ -362,9 +362,10 @@ const SNES_PALETTES: PalettePreset[] = [
 
 export const SIMON_BLUEPRINT: FighterBlueprint = {
   id: 'simon',
-  name: 'Whip Guy',
+  name: 'Simon',
+  nickname: 'Whip Guy',
   era: 'NES',
-  originTag: 'Night Castle',
+  originTag: 'Castlevania',
   archetype: 'whip-hunter',
   archetypeLabel: 'Long-Range Whip',
   gridSize: 16,

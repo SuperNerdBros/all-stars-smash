@@ -343,9 +343,10 @@ const SNES_PALETTES: PalettePreset[] = [
 
 export const RYU_HAYABUSA_BLUEPRINT: FighterBlueprint = {
   id: 'ryu-hayabusa',
-  name: 'Shadow Guy',
+  name: 'Ryu Hayabusa',
+  nickname: 'Shadow Guy',
   era: 'NES',
-  originTag: 'Dragon Clan',
+  originTag: 'Ninja Gaiden',
   archetype: 'shinobi',
   archetypeLabel: 'Wall-Cling Shinobi',
   gridSize: 16,

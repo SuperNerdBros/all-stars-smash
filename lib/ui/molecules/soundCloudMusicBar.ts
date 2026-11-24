@@ -18,19 +18,24 @@ export interface SoundCloudMusicBarProps {
   stage: StageManifest;
   isOpen: boolean;
   isInMatch: boolean;
+  autoStart?: boolean;
   onToggleOpen: () => void;
 }
 
 /**
  * Persistent stage-matched SoundCloud OST player that stays mounted across
- * Stage Select and live Matches so audio never resets on launch.
+ * Title Screen, Stage Select, and live Matches so audio never resets on launch.
  */
 export function SoundCloudMusicBar(
   props: SoundCloudMusicBarProps,
 ): React.ReactElement {
-  const { stage, isOpen, isInMatch, onToggleOpen } = props;
+  const { stage, isOpen, isInMatch, autoStart = false, onToggleOpen } = props;
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const { state, togglePlay, toggleMute } = useSoundCloudPlayer(stage.soundCloudUrl, iframeRef);
+  const { state, togglePlay, toggleMute } = useSoundCloudPlayer(
+    stage.soundCloudUrl,
+    iframeRef,
+    autoStart,
+  );
   const { isPlaying, isMuted, embedSrc } = state;
 
   return React.createElement(

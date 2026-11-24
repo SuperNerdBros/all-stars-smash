@@ -14,7 +14,7 @@ const CORE_STAGES: StageManifest[] = [
     ostTitle: 'Battlefield - SSBU OST',
     ostTrackIndex: 1,
     soundCloudUrl: 'https://soundcloud.com/ssbu-ost/battlefield',
-    backdropImage: STAGE_BACKDROPS.kingdom,
+    backdropImage: STAGE_BACKDROPS.skyworld,
     vfx: 'petals',
     sky: {
       zenith: '#142952',
@@ -244,7 +244,7 @@ const CORE_STAGES: StageManifest[] = [
     ostTitle: 'Lifelight - SSBU OST',
     ostTrackIndex: 22,
     soundCloudUrl: 'https://soundcloud.com/ssbu-ost/lifelight',
-    backdropImage: STAGE_BACKDROPS.gothic,
+    backdropImage: STAGE_BACKDROPS.desert,
     vfx: 'embers',
     sky: {
       zenith: '#21132B',
@@ -359,11 +359,61 @@ const CORE_STAGES: StageManifest[] = [
   },
 ];
 
+const ARENA_SCALE_X = 1.48;
+const ARENA_SCALE_Y = 1.12;
+const ARENA_SCALE_D = 1.18;
+const ARENA_PIVOT_Y = 24;
+
+function roundEven(value: number): number {
+  return Math.max(8, Math.round(value / 2) * 2);
+}
+
+/**
+ * Uniformly enlarges every playing field horizontally and vertically while keeping
+ * multi-volume terrain flush, jumpable on single hops, and framed with wider blast zones.
+ */
+function expandStageArena(stage: StageManifest): StageManifest {
+  return {
+    ...stage,
+    blastZones: {
+      left: Math.round(stage.blastZones.left * 1.52),
+      right: Math.round(stage.blastZones.right * 1.52),
+      top: Math.round(stage.blastZones.top * 1.28),
+      bottom: Math.round(stage.blastZones.bottom * 1.28),
+    },
+    spawnPoints: [
+      {
+        x: Math.round(stage.spawnPoints[0].x * ARENA_SCALE_X),
+        y: Math.round(ARENA_PIVOT_Y + (stage.spawnPoints[0].y - ARENA_PIVOT_Y) * ARENA_SCALE_Y),
+      },
+      {
+        x: Math.round(stage.spawnPoints[1].x * ARENA_SCALE_X),
+        y: Math.round(ARENA_PIVOT_Y + (stage.spawnPoints[1].y - ARENA_PIVOT_Y) * ARENA_SCALE_Y),
+      },
+    ],
+    volumes: stage.volumes.map((vol) => ({
+      ...vol,
+      x: Math.round(vol.x * ARENA_SCALE_X),
+      topY: Math.round(ARENA_PIVOT_Y + (vol.topY - ARENA_PIVOT_Y) * ARENA_SCALE_Y),
+      width: roundEven(vol.width * ARENA_SCALE_X),
+      height: vol.passThrough ? vol.height : Math.round(vol.height * 1.12),
+      depth: roundEven(vol.depth * ARENA_SCALE_D),
+      motion: vol.motion
+        ? {
+            ...vol.motion,
+            ampX: Math.round(vol.motion.ampX * ARENA_SCALE_X),
+            ampY: Math.round(vol.motion.ampY * ARENA_SCALE_Y),
+          }
+        : undefined,
+    })),
+  };
+}
+
 export const STAGE_MANIFESTS: StageManifest[] = [
   ...CORE_STAGES,
   ...EXTRA_20_STAGES,
   ...WILD_12_STAGES,
-];
+].map(expandStageArena);
 
 export function getStageById(id: string): StageManifest {
   return STAGE_MANIFESTS.find((s) => s.id === id) ?? STAGE_MANIFESTS[0];

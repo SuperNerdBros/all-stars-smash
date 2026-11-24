@@ -2,16 +2,25 @@
 
 import { useEffect, useState } from 'react';
 import type { FighterBlueprint, GraphicsEra } from '../types/fighter';
-import type { MatchConfig } from '../types/protocol';
+import type { HudSnapshot, MatchConfig } from '../types/protocol';
 import {
   BUILTIN_FIGHTERS,
   loadRoster,
   resetRosterToDefaults,
   saveCustomFighterToStorage,
 } from '../roster/registry';
-import { getStageById } from '../stages/manifests';
+import { getStageById, STAGE_MANIFESTS } from '../stages/manifests';
 
-export type ScreenState = 'CHARACTER_SELECT' | 'STAGE_SELECT' | 'PLAYING';
+export type ScreenState =
+  | 'DISCLAIMER'
+  | 'TITLE'
+  | 'CHARACTER_SELECT'
+  | 'STAGE_SELECT'
+  | 'VS_INTRO'
+  | 'PLAYING'
+  | 'VICTORY';
+
+const ATTRACT_CPU_COUNT = 3;
 
 const INITIAL_CONFIG: MatchConfig = {
   players: [
@@ -23,28 +32,59 @@ const INITIAL_CONFIG: MatchConfig = {
   graphicsEra: 'SNES_SEGA',
 };
 
+function pickRandomStageId(excludeId?: string): string {
+  const pool = STAGE_MANIFESTS.filter((s) => s.id !== excludeId);
+  const source = pool.length > 0 ? pool : STAGE_MANIFESTS;
+  return source[Math.floor(Math.random() * source.length)]?.id ?? STAGE_MANIFESTS[0].id;
+}
+
+function pickRandomFighterIds(roster: ReadonlyArray<FighterBlueprint>, count: number): string[] {
+  const pool = roster.map((f) => f.id);
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = pool[i];
+    pool[i] = pool[j];
+    pool[j] = tmp;
+  }
+  return pool.slice(0, Math.min(count, pool.length));
+}
+
 interface ShellState {
   screen: ScreenState;
   roster: FighterBlueprint[];
   matchConfig: MatchConfig;
+  attractFighterIds: string[];
+  lastMatchHud: HudSnapshot | null;
   forgeFighterId: string | null;
   importerOpen: boolean;
   musicOpen: boolean;
+  musicAutoStart: boolean;
 }
 
 export function useArcadeShellState() {
   const [state, setState] = useState<ShellState>(() => ({
-    screen: 'CHARACTER_SELECT',
+    screen: 'DISCLAIMER',
     roster: [...BUILTIN_FIGHTERS],
     matchConfig: INITIAL_CONFIG,
+    attractFighterIds: BUILTIN_FIGHTERS.slice(0, ATTRACT_CPU_COUNT).map((f) => f.id),
+    lastMatchHud: null,
     forgeFighterId: null,
     importerOpen: false,
     musicOpen: false,
+    musicAutoStart: false,
   }));
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setState((prev) => ({ ...prev, roster: loadRoster() }));
+      const loaded = loadRoster();
+      const randomStageId = pickRandomStageId();
+      const randomAttract = pickRandomFighterIds(loaded, ATTRACT_CPU_COUNT);
+      setState((prev) => ({
+        ...prev,
+        roster: loaded,
+        attractFighterIds: randomAttract,
+        matchConfig: { ...prev.matchConfig, stageId: randomStageId },
+      }));
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -60,13 +100,53 @@ export function useArcadeShellState() {
     ? state.roster.find((f) => f.id === state.forgeFighterId) ?? null
     : null;
 
+  const attractFighters: FighterBlueprint[] = state.attractFighterIds
+    .map((id) => state.roster.find((f) => f.id === id))
+    .filter((f): f is FighterBlueprint => Boolean(f));
+
   return {
     ...state,
     p1Fighter,
     p2Fighter,
+    attractFighters: attractFighters.length > 0 ? attractFighters : state.roster.slice(0, ATTRACT_CPU_COUNT),
     stage,
     forgeFighter,
     setScreen: (screen: ScreenState) => setState((prev) => ({ ...prev, screen })),
+    dismissDisclaimer: () =>
+      setState((prev) => ({
+        ...prev,
+        screen: 'TITLE',
+        musicAutoStart: true,
+      })),
+    shuffleAttract: () =>
+      setState((prev) => ({
+        ...prev,
+        attractFighterIds: pickRandomFighterIds(prev.roster, ATTRACT_CPU_COUNT),
+        matchConfig: {
+          ...prev.matchConfig,
+          stageId: pickRandomStageId(prev.matchConfig.stageId),
+        },
+      })),
+    startQuickBrawl: () =>
+      setState((prev) => {
+        const pair = pickRandomFighterIds(prev.roster, 2);
+        return {
+          ...prev,
+          lastMatchHud: null,
+          screen: 'VS_INTRO',
+          matchConfig: {
+            ...prev.matchConfig,
+            players: [
+              { ...prev.matchConfig.players[0], fighterId: pair[0] ?? prev.matchConfig.players[0].fighterId, paletteIndex: 0 },
+              { ...prev.matchConfig.players[1], fighterId: pair[1] ?? prev.matchConfig.players[1].fighterId, paletteIndex: 0 },
+            ],
+          },
+        };
+      }),
+    launchVsIntro: () =>
+      setState((prev) => ({ ...prev, lastMatchHud: null, screen: 'VS_INTRO' })),
+    completeMatch: (hud: HudSnapshot) =>
+      setState((prev) => ({ ...prev, lastMatchHud: hud, screen: 'VICTORY' })),
     setMatchConfig: (updater: MatchConfig | ((prev: MatchConfig) => MatchConfig)) =>
       setState((prev) => ({
         ...prev,

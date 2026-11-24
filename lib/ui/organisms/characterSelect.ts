@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import {
+  ArrowLeft,
   ChevronDown,
   ImagePlus,
   Paintbrush,
@@ -19,6 +20,7 @@ export interface CharacterSelectProps {
   roster: FighterBlueprint[];
   matchConfig: MatchConfig;
   onUpdateMatchConfig: (next: MatchConfig) => void;
+  onBackToTitle?: () => void;
   onOpenStageSelect: () => void;
   onOpenPixelForge: (fighterId: string) => void;
   onOpenPngImporter: () => void;
@@ -30,6 +32,7 @@ export function CharacterSelect(props: CharacterSelectProps): React.ReactElement
     roster,
     matchConfig,
     onUpdateMatchConfig,
+    onBackToTitle,
     onOpenStageSelect,
     onOpenPixelForge,
     onOpenPngImporter,
@@ -113,7 +116,7 @@ export function CharacterSelect(props: CharacterSelectProps): React.ReactElement
     'div',
     {
       className:
-        'min-h-screen w-full bg-black text-white flex flex-col overflow-x-hidden select-none',
+        'min-h-screen lg:h-screen w-screen bg-black text-white flex flex-col overflow-x-hidden lg:overflow-hidden select-none',
     },
 
     // ── OFFICIAL SMASH ULTIMATE CRIMSON TOP BAR + SLANTED YELLOW MODE BANNER ──
@@ -131,6 +134,23 @@ export function CharacterSelect(props: CharacterSelectProps): React.ReactElement
         React.createElement(
           'div',
           { className: 'flex items-center gap-1.5' },
+          onBackToTitle
+            ? React.createElement(
+                'button',
+                {
+                  type: 'button',
+                  onClick: () => {
+                    chiptuneAudio.playMenuTick();
+                    onBackToTitle();
+                  },
+                  title: 'Return to Title Screen',
+                  className:
+                    'inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#7F1D1D] hover:bg-[#991B1B] border-2 border-black text-xs font-black uppercase text-white cursor-pointer whitespace-nowrap',
+                },
+                React.createElement(ArrowLeft, { className: 'w-3.5 h-3.5' }),
+                React.createElement('span', { className: 'hidden sm:inline' }, 'Title'),
+              )
+            : null,
           React.createElement(
             'button',
             {
@@ -330,7 +350,7 @@ export function CharacterSelect(props: CharacterSelectProps): React.ReactElement
       {
         'aria-label': 'Active Matchup Loadouts',
         className:
-          'relative flex-1 w-full px-3 sm:px-8 py-4 flex flex-col justify-between gap-3',
+          'relative flex-1 min-h-0 w-full px-3 sm:px-8 py-3 flex flex-col justify-between gap-2',
         style: {
           backgroundImage:
             'linear-gradient(165deg, #38BDF8 0%, #2563EB 45%, #1E3A8A 100%)',

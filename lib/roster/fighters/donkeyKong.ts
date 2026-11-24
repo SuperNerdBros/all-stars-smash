@@ -363,9 +363,10 @@ const SNES_PALETTES: PalettePreset[] = [
 
 export const DONKEY_KONG_BLUEPRINT: FighterBlueprint = {
   id: 'donkey-kong',
-  name: 'Barrel Ape',
+  name: 'Donkey Kong',
+  nickname: 'Barrel Ape',
   era: 'NES',
-  originTag: 'Jungle Arcade',
+  originTag: 'Donkey Kong',
   archetype: 'heavy-grappler',
   archetypeLabel: 'Heavy Powerhouse',
   gridSize: 16,

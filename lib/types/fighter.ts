@@ -81,6 +81,7 @@ export interface FighterMoveset {
 export interface FighterBlueprint {
   id: string;
   name: string;
+  nickname?: string;
   era: RetroEra;
   originTag: string;
   archetype: ArchetypeId;

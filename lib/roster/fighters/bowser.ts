@@ -286,9 +286,10 @@ const SNES_PALETTES: PalettePreset[] = [
 
 export const BOWSER_BLUEPRINT: FighterBlueprint = {
   id: 'bowser',
-  name: 'Turtle',
+  name: 'Bowser',
+  nickname: 'Turtle',
   era: 'NES',
-  originTag: 'Lava Keep',
+  originTag: 'Super Mario Bros.',
   archetype: 'heavy-grappler',
   archetypeLabel: 'Spiked Titan',
   gridSize: 16,

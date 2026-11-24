@@ -458,9 +458,10 @@ const SNES_PALETTES: PalettePreset[] = [
 
 export const SAMUS_BLUEPRINT: FighterBlueprint = {
   id: 'samus',
-  name: 'Sam',
+  name: 'Samus',
+  nickname: 'Sam',
   era: 'NES',
-  originTag: 'Space Hunter',
+  originTag: 'Metroid',
   archetype: 'heavy-gunner',
   archetypeLabel: 'Heavy Arm-Cannon',
   gridSize: 16,

@@ -591,9 +591,10 @@ const SNES_PALETTES: PalettePreset[] = [
 
 export const MARIO_BLUEPRINT: FighterBlueprint = {
   id: 'mario',
-  name: 'Mustache',
+  name: 'Mario',
+  nickname: 'Mustache',
   era: 'NES',
-  originTag: 'Plumber Bros.',
+  originTag: 'Super Mario Bros.',
   archetype: 'brawler',
   archetypeLabel: 'Balanced Brawler',
   gridSize: 16,

@@ -22,10 +22,10 @@ import {
   type PackedFighterRecord,
 } from './nibbleCodec';
 
-const STORAGE_KEY = 'pixel_brawl_25d_custom_fighters_v3';
+const STORAGE_KEY = 'pixel_brawl_25d_custom_fighters_v4';
 
 /**
- * Full 23-character retro cast (13 NES/SEGA classics + 4 Time Trigger + 6 Crystal IV-VI).
+ * Full 23-character retro cast (13 NES/SEGA classics + 4 Chrono Trigger + 6 Final Fantasy IV-VI).
  * Paired with the '?' Random tile on Character Select for an exact 8x3 (24-tile) Smash mosaic!
  */
 export const BUILTIN_FIGHTERS: readonly FighterBlueprint[] = [

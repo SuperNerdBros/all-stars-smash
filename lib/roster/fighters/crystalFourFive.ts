@@ -102,9 +102,10 @@ const MOON_KNIGHT_PALETTES: PalettePreset[] = [
 
 export const MOON_KNIGHT_BLUEPRINT: FighterBlueprint = {
   id: 'moon-knight',
-  name: 'Moon Knight',
+  name: 'Cecil',
+  nickname: 'Moon Knight',
   era: 'SNES',
-  originTag: 'Crystal IV',
+  originTag: 'Final Fantasy IV',
   archetype: 'sword-hero',
   archetypeLabel: 'Dark / Paladin Blade',
   gridSize: 24,
@@ -247,9 +248,10 @@ const JUMP_SPEAR_PALETTES: PalettePreset[] = [
 
 export const JUMP_SPEAR_BLUEPRINT: FighterBlueprint = {
   id: 'jump-spear',
-  name: 'Jump Spear',
+  name: 'Kain',
+  nickname: 'Jump Spear',
   era: 'SNES',
-  originTag: 'Crystal IV',
+  originTag: 'Final Fantasy IV',
   archetype: 'high-jumper',
   archetypeLabel: 'Sky Dragoon Lancer',
   gridSize: 24,
@@ -392,9 +394,10 @@ const JOB_HOPPER_PALETTES: PalettePreset[] = [
 
 export const JOB_HOPPER_BLUEPRINT: FighterBlueprint = {
   id: 'job-hopper',
-  name: 'Job Hopper',
+  name: 'Bartz',
+  nickname: 'Job Hopper',
   era: 'SNES',
-  originTag: 'Crystal V',
+  originTag: 'Final Fantasy V',
   archetype: 'sword-hero',
   archetypeLabel: 'Wind Spellblade',
   gridSize: 24,

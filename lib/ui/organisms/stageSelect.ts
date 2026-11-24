@@ -50,9 +50,9 @@ function renderMiniStageGraphic(stage: StageManifest): React.ReactElement {
       style: { backgroundColor: stage.sky.mid },
     }),
     ...combatVolumes.map((vol) => {
-      const leftPct = Math.max(6, Math.min(84, 50 + (vol.x - vol.width / 2) / 14));
-      const widthPct = Math.max(11, Math.min(84, vol.width / 14));
-      const topPct = Math.max(20, Math.min(76, 56 + vol.topY / 11));
+      const leftPct = Math.max(5, Math.min(86, 50 + (vol.x - vol.width / 2) / 20));
+      const widthPct = Math.max(10, Math.min(88, vol.width / 20));
+      const topPct = Math.max(18, Math.min(78, 56 + vol.topY / 13));
       const heightPx = vol.passThrough ? 3 : Math.max(5, Math.min(10, vol.height / 14));
       return React.createElement('span', {
         key: vol.id,
@@ -88,7 +88,7 @@ function renderStageTile(
       onClick: onSelect,
       onDoubleClick: onDoubleSelect,
       className: [
-        'group relative min-h-[92px] h-full overflow-hidden text-left cursor-pointer transition-transform focus-visible:outline-none',
+        'group relative min-h-[76px] lg:min-h-0 h-full overflow-hidden text-left cursor-pointer transition-transform focus-visible:outline-none',
         isSelected
           ? 'ring-[3px] ring-[#FACC15] z-10 scale-[1.015]'
           : 'hover:brightness-110 hover:z-10',
@@ -172,7 +172,7 @@ export function StageSelect(props: StageSelectProps): React.ReactElement {
 
   return React.createElement(
     'div',
-    { className: 'min-h-screen w-full bg-[#090C14] text-white flex flex-col select-none' },
+    { className: 'min-h-screen lg:h-screen w-screen bg-[#090C14] text-white flex flex-col overflow-x-hidden lg:overflow-hidden select-none' },
 
     // Official Smash Crimson Top Ribbon
     React.createElement(
@@ -307,7 +307,7 @@ export function StageSelect(props: StageSelectProps): React.ReactElement {
       'main',
       {
         className:
-          'flex-1 grid grid-cols-1 lg:grid-cols-12 bg-gradient-to-b from-[#0E172A] via-[#0B1120] to-[#080C17]',
+          'flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 bg-gradient-to-b from-[#0E172A] via-[#0B1120] to-[#080C17]',
       },
 
       // Left Live 2.5D Preview Column (4 cols)
@@ -426,12 +426,12 @@ export function StageSelect(props: StageSelectProps): React.ReactElement {
       // Right Full-Height 6x6 (35 Stages + Random ?) Smash Mosaic Board (8 cols)
       React.createElement(
         'section',
-        { className: 'lg:col-span-8 p-2 sm:p-2.5 bg-black flex flex-col' },
+        { className: 'lg:col-span-8 min-h-0 p-2 sm:p-2.5 bg-black flex flex-col' },
         React.createElement(
           'div',
           {
             className:
-              'flex-1 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 auto-rows-fr gap-[3px] bg-black',
+              'flex-1 min-h-0 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 auto-rows-fr gap-[3px] bg-black',
           },
           ...STAGE_MANIFESTS.map((stage, idx) =>
             renderStageTile(
@@ -458,7 +458,7 @@ export function StageSelect(props: StageSelectProps): React.ReactElement {
               onClick: handleRandomStage,
               title: `Pick Random Stage from all ${STAGE_MANIFESTS.length} Arenas`,
               className:
-                'relative min-h-[92px] h-full overflow-hidden cursor-pointer flex flex-col items-center justify-center bg-gradient-to-br from-[#FACC15] via-[#EAB308] to-[#CA8A04] hover:brightness-110 transition-all',
+                'relative min-h-[76px] lg:min-h-0 h-full overflow-hidden cursor-pointer flex flex-col items-center justify-center bg-gradient-to-br from-[#FACC15] via-[#EAB308] to-[#CA8A04] hover:brightness-110 transition-all',
             },
             React.createElement(
               'span',

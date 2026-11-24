@@ -79,8 +79,8 @@ export function StagePreviewCanvas(props: StagePreviewCanvasProps): React.ReactE
     ctx.imageSmoothingEnabled = false;
 
     const cam = createCameraRig('ISOMETRIC');
-    cam.zoom = 1.04;
-    cam.focalY = 12;
+    cam.zoom = 0.74;
+    cam.focalY = 14;
 
     const cache = bakeStageSlices(stage);
     let loadedImg: HTMLImageElement | null = null;

@@ -591,9 +591,10 @@ const SNES_PALETTES: PalettePreset[] = [
 
 export const LINK_BLUEPRINT: FighterBlueprint = {
   id: 'link',
-  name: 'Chain',
+  name: 'Link',
+  nickname: 'Chain',
   era: 'NES',
-  originTag: 'Triforce Quest',
+  originTag: 'Legend of Zelda',
   archetype: 'sword-hero',
   archetypeLabel: 'Sword & Shield',
   gridSize: 16,

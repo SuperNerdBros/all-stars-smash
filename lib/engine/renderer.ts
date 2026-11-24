@@ -22,13 +22,34 @@ import {
 
 type DrawCtx = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
 
+export type RenderableFighter = Omit<FighterEntity, 'slot'> & { slot: number };
+
+export interface RenderableSimulation {
+  stage: StageManifest;
+  fighters: ReadonlyArray<RenderableFighter>;
+  projectiles: ReadonlyArray<ProjectileEntity>;
+  particles: ReadonlyArray<ParticleEntity>;
+  matchTimeTicks: number;
+}
+
+const SLOT_TAG_COLORS = [
+  '#EF4444',
+  '#3B82F6',
+  '#FACC15',
+  '#22C55E',
+  '#F97316',
+  '#06B6D4',
+  '#EC4899',
+  '#A855F7',
+] as const;
+
 interface RenderQueueItem {
   depth: number;
   priority: number;
   draw: (ctx: DrawCtx) => void;
 }
 
-function selectFighterSurface(f: FighterEntity, pair: BakedFramePair): BakedSurface {
+function selectFighterSurface(f: RenderableFighter, pair: BakedFramePair): BakedSurface {
   if (f.hitFlashTimer > 0) {
     return f.facing > 0 ? pair.flashRight : pair.flashLeft;
   }
@@ -100,10 +121,10 @@ export class SoftwareRenderer25D {
     targetCtx: DrawCtx,
     targetWidth: number,
     targetHeight: number,
-    sim: SimulationState,
+    sim: RenderableSimulation,
     cam: CameraRig,
     stageCache: BakedStageCache,
-    bakedFighters: [BakedFighterSprites, BakedFighterSprites],
+    bakedFighters: ReadonlyArray<BakedFighterSprites>,
     hitboxesVisible: boolean,
   ): void {
     const ctx = this.bctx;
@@ -126,7 +147,8 @@ export class SoftwareRenderer25D {
       this.enqueueFighterShadow(queue, fighter, sim.stage, cam, sim.matchTimeTicks);
     }
 
-    for (let i = 0; i < 2; i++) {
+    const fighterCount = Math.min(sim.fighters.length, bakedFighters.length);
+    for (let i = 0; i < fighterCount; i++) {
       const f = sim.fighters[i];
       if (f.stocks <= 0 && f.respawnTimer > 100) continue;
       this.enqueueFighterBillboard(queue, f, bakedFighters[i], cam, sim.matchTimeTicks);
@@ -276,7 +298,7 @@ export class SoftwareRenderer25D {
 
   private enqueueFighterShadow(
     queue: RenderQueueItem[],
-    fighter: FighterEntity,
+    fighter: RenderableFighter,
     stage: StageManifest,
     cam: CameraRig,
     tick: number,
@@ -314,7 +336,7 @@ export class SoftwareRenderer25D {
 
   private enqueueFighterBillboard(
     queue: RenderQueueItem[],
-    f: FighterEntity,
+    f: RenderableFighter,
     sprites: BakedFighterSprites,
     cam: CameraRig,
     tick: number,
@@ -364,11 +386,13 @@ export class SoftwareRenderer25D {
           ctx.fillRect(edgeX, topY + 2, 1, Math.max(3, Math.round(drawH * 0.28)));
         }
 
+        const slotColor = SLOT_TAG_COLORS[f.slot % SLOT_TAG_COLORS.length];
+
         if (f.shielding && f.shieldHp > 0) {
           const r = Math.max(8, Math.round((drawH * 0.58) * (0.45 + 0.55 * (f.shieldHp / 100))));
           ctx.save();
-          ctx.strokeStyle = f.slot === 0 ? '#F87171' : '#60A5FA';
-          ctx.fillStyle = f.slot === 0 ? 'rgba(239, 68, 68, 0.24)' : 'rgba(59, 130, 246, 0.24)';
+          ctx.strokeStyle = slotColor;
+          ctx.fillStyle = `${slotColor}3D`;
           ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.arc(Math.round(foot.sx), Math.round(foot.sy - drawH * 0.5), r, 0, Math.PI * 2);
@@ -379,7 +403,7 @@ export class SoftwareRenderer25D {
 
         const tagY = Math.round(foot.sy - drawH - 7);
         const tagX = Math.round(foot.sx);
-        ctx.fillStyle = f.slot === 0 ? '#EF4444' : '#3B82F6';
+        ctx.fillStyle = slotColor;
         ctx.fillRect(tagX - 3, tagY, 6, 2);
         ctx.fillRect(tagX - 2, tagY + 2, 4, 1);
         ctx.fillRect(tagX - 1, tagY + 3, 2, 1);
@@ -420,7 +444,7 @@ export class SoftwareRenderer25D {
     });
   }
 
-  private drawDebugOverlay(ctx: DrawCtx, sim: SimulationState, cam: CameraRig): void {
+  private drawDebugOverlay(ctx: DrawCtx, sim: RenderableSimulation, cam: CameraRig): void {
     ctx.save();
     const bz = sim.stage.blastZones;
     const tl = projectPoint(cam, bz.left, bz.top, 0);
@@ -440,7 +464,7 @@ export class SoftwareRenderer25D {
       ctx.fillRect(Math.round(hTL.sx), Math.round(hTL.sy), Math.round(hBR.sx - hTL.sx), Math.round(hBR.sy - hTL.sy));
       ctx.strokeRect(Math.round(hTL.sx), Math.round(hTL.sy), Math.round(hBR.sx - hTL.sx), Math.round(hBR.sy - hTL.sy));
 
-      const activeHb = getActiveHitbox(f);
+      const activeHb = getActiveHitbox(f as FighterEntity);
       if (activeHb) {
         const aTL = projectPoint(cam, activeHb.x, activeHb.y, 3);
         const aBR = projectPoint(cam, activeHb.x + activeHb.w, activeHb.y + activeHb.h, 3);

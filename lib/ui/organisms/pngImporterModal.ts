@@ -13,12 +13,12 @@ export interface PngImporterModalProps {
 }
 
 const ARCHETYPES: ReadonlyArray<{ id: ArchetypeId; label: string }> = [
-  { id: 'brawler', label: 'Balanced Brawler (Mustache)' },
-  { id: 'high-jumper', label: 'Floaty High-Jumper (More Stash)' },
-  { id: 'sword-hero', label: 'Sword & Shield (Chain / Spiky Time)' },
-  { id: 'zoner', label: 'Arm-Cannon Zoner (Mega Byte)' },
-  { id: 'speedster', label: 'Hyper Speedster (Chili Dogs)' },
-  { id: 'heavy-gunner', label: 'Heavy Gunner (Sam / Tin Can)' },
+  { id: 'brawler', label: 'Balanced Brawler (Mario)' },
+  { id: 'high-jumper', label: 'Floaty High-Jumper (Luigi)' },
+  { id: 'sword-hero', label: 'Sword & Shield (Link / Crono)' },
+  { id: 'zoner', label: 'Arm-Cannon Zoner (Mega Man)' },
+  { id: 'speedster', label: 'Hyper Speedster (Sonic)' },
+  { id: 'heavy-gunner', label: 'Heavy Gunner (Samus / Robo)' },
 ];
 
 export function PngImporterModal(props: PngImporterModalProps): React.ReactElement {

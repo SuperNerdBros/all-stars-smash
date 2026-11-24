@@ -325,9 +325,10 @@ const SNES_PALETTES: PalettePreset[] = [
 
 export const LITTLE_MAC_BLUEPRINT: FighterBlueprint = {
   id: 'little-mac',
-  name: 'Punch Kid',
+  name: 'Little Mac',
+  nickname: 'Punch Kid',
   era: 'NES',
-  originTag: 'Ring Champ',
+  originTag: 'Punch-Out!!',
   archetype: 'boxer',
   archetypeLabel: 'KO Ground Boxer',
   gridSize: 16,

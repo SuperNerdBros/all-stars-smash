@@ -286,9 +286,10 @@ const SNES_PALETTES: PalettePreset[] = [
 
 export const PIT_BLUEPRINT: FighterBlueprint = {
   id: 'pit',
-  name: 'Wing Kid',
+  name: 'Pit',
+  nickname: 'Wing Kid',
   era: 'NES',
-  originTag: 'Sky Realm',
+  originTag: 'Kid Icarus',
   archetype: 'sky-archer',
   archetypeLabel: 'Winged Sky Archer',
   gridSize: 16,

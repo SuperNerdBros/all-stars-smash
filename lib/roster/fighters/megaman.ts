@@ -477,9 +477,10 @@ const SNES_PALETTES: PalettePreset[] = [
 
 export const MEGAMAN_BLUEPRINT: FighterBlueprint = {
   id: 'megaman',
-  name: 'Mega Byte',
+  name: 'Mega Man',
+  nickname: 'Mega Byte',
   era: 'NES',
-  originTag: 'Blue Bomber',
+  originTag: 'Mega Man 2',
   archetype: 'zoner',
   archetypeLabel: 'Buster Zoner',
   gridSize: 16,

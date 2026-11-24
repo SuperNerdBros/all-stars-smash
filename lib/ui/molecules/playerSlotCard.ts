@@ -222,6 +222,16 @@ export function PlayerSlotCard(props: PlayerSlotCardProps): React.ReactElement {
           React.createElement(
             'div',
             { className: 'text-right my-auto' },
+            fighter.nickname
+              ? React.createElement(
+                  'div',
+                  {
+                    className: 'font-display font-extrabold text-[11px] sm:text-xs uppercase tracking-widest text-[#FDE047] truncate',
+                    style: { textShadow: '1.5px 1.5px 0 #000, -1px -1px 0 #000' },
+                  },
+                  `"${fighter.nickname}"`,
+                )
+              : null,
             React.createElement('h3', { className: 'font-display font-black text-2xl sm:text-3xl leading-none text-white tracking-tight truncate', style: { textShadow: HARD_OUTLINE } }, fighter.name),
             React.createElement('div', { className: 'text-[11px] font-bold text-white/90 tracking-wide mt-0.5 truncate', style: { textShadow: '1px 1px 0 rgba(0,0,0,0.85)' } }, `${fighter.originTag} · ${resolved.gridSize}px · ${fighter.stats.maxJumps} Jumps`),
           ),

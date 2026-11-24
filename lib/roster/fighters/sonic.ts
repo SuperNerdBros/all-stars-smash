@@ -438,9 +438,10 @@ const GENESIS_PALETTES: PalettePreset[] = [
 
 export const SONIC_BLUEPRINT: FighterBlueprint = {
   id: 'sonic',
-  name: 'Chili Dogs',
+  name: 'Sonic',
+  nickname: 'Chili Dogs',
   era: 'SEGA',
-  originTag: 'Blast Zone',
+  originTag: 'Sonic the Hedgehog',
   archetype: 'speedster',
   archetypeLabel: 'Hyper Speedster',
   gridSize: 16,

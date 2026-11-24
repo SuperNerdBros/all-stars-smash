@@ -76,9 +76,9 @@ export function computeCpuInputMask(
   if (mem.attackCooldown > 0) mem.attackCooldown--;
   if (mem.jumpPulseCooldown > 0) mem.jumpPulseCooldown--;
 
-  let safeMinX = -95;
-  let safeMaxX = 95;
-  let mainTopY = 42;
+  let safeMinX = Infinity;
+  let safeMaxX = -Infinity;
+  let mainTopY = Infinity;
   for (const vol of stage.volumes) {
     if (!vol.passThrough && !vol.decorative) {
       const pose = computeVolumeState(vol, tick);
@@ -87,6 +87,11 @@ export function computeCpuInputMask(
       safeMaxX = Math.max(safeMaxX, pose.x + vol.width * 0.5 - 10);
       mainTopY = Math.min(mainTopY, pose.topY);
     }
+  }
+  if (!Number.isFinite(safeMinX)) {
+    safeMinX = -140;
+    safeMaxX = 140;
+    mainTopY = 48;
   }
 
   let mask = 0;

@@ -102,9 +102,10 @@ const SPIKY_TIME_PALETTES: PalettePreset[] = [
 
 export const SPIKY_TIME_BLUEPRINT: FighterBlueprint = {
   id: 'spiky-time',
-  name: 'Spiky Time',
+  name: 'Crono',
+  nickname: 'Spiky Time',
   era: 'SNES',
-  originTag: 'Time Trigger',
+  originTag: 'Chrono Trigger',
   archetype: 'sword-hero',
   archetypeLabel: 'Lightning Katana',
   gridSize: 24,
@@ -247,9 +248,10 @@ const SIR_RIBBIT_PALETTES: PalettePreset[] = [
 
 export const SIR_RIBBIT_BLUEPRINT: FighterBlueprint = {
   id: 'sir-ribbit',
-  name: 'Sir Ribbit',
+  name: 'Frog',
+  nickname: 'Sir Ribbit',
   era: 'SNES',
-  originTag: 'Time Trigger',
+  originTag: 'Chrono Trigger',
   archetype: 'sword-hero',
   archetypeLabel: 'Amphibian Blade',
   gridSize: 24,
@@ -392,9 +394,10 @@ const TIN_CAN_PALETTES: PalettePreset[] = [
 
 export const TIN_CAN_BLUEPRINT: FighterBlueprint = {
   id: 'tin-can',
-  name: 'Tin Can',
+  name: 'Robo',
+  nickname: 'Tin Can',
   era: 'SNES',
-  originTag: 'Time Trigger',
+  originTag: 'Chrono Trigger',
   archetype: 'heavy-gunner',
   archetypeLabel: 'Rocket Punch Mech',
   gridSize: 24,
@@ -537,9 +540,10 @@ const CAPE_LORD_PALETTES: PalettePreset[] = [
 
 export const CAPE_LORD_BLUEPRINT: FighterBlueprint = {
   id: 'cape-lord',
-  name: 'Cape Lord',
+  name: 'Magus',
+  nickname: 'Cape Lord',
   era: 'SNES',
-  originTag: 'Time Trigger',
+  originTag: 'Chrono Trigger',
   archetype: 'zoner',
   archetypeLabel: 'Scythe Dark Mage',
   gridSize: 24,

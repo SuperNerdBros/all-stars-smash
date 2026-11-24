@@ -53,9 +53,10 @@ export interface SoundCloudPlayerState {
 export function useSoundCloudPlayer(
   trackUrl: string,
   iframeRef: RefObject<HTMLIFrameElement | null>,
+  autoStart = false,
 ) {
   const statusRef = useRef<{ isPlaying: boolean; isMuted: boolean }>({
-    isPlaying: false,
+    isPlaying: autoStart,
     isMuted: false,
   });
 
@@ -76,6 +77,10 @@ export function useSoundCloudPlayer(
         postScCommand(iframeRef.current, 'addEventListener', 'pause');
         postScCommand(iframeRef.current, 'addEventListener', 'finish');
         postScCommand(iframeRef.current, 'setVolume', statusRef.current.isMuted ? 0 : 75);
+        const shouldPlayNow = statusRef.current.isPlaying && !statusRef.current.isMuted;
+        if (shouldPlayNow) {
+          postScCommand(iframeRef.current, 'play');
+        }
       } else if (method === 'play') {
         statusRef.current.isPlaying = true;
         setState((prev) => ({ ...prev, isPlaying: true }));
@@ -93,12 +98,15 @@ export function useSoundCloudPlayer(
   }, [iframeRef]);
 
   useEffect(() => {
+    if (autoStart && !statusRef.current.isMuted) {
+      statusRef.current.isPlaying = true;
+    }
     const timer = window.setTimeout(() => {
-      const shouldAutoPlay = statusRef.current.isPlaying && !statusRef.current.isMuted;
+      const shouldAutoPlay = (autoStart || statusRef.current.isPlaying) && !statusRef.current.isMuted;
       setState((prev) => ({ ...prev, embedSrc: buildEmbedSrc(trackUrl, shouldAutoPlay) }));
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [trackUrl]);
+  }, [trackUrl, autoStart]);
 
   const togglePlay = () => {
     if (state.isPlaying) {

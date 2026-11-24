@@ -102,9 +102,10 @@ const ESPER_HAIR_PALETTES: PalettePreset[] = [
 
 export const ESPER_HAIR_BLUEPRINT: FighterBlueprint = {
   id: 'esper-hair',
-  name: 'Esper Hair',
+  name: 'Terra',
+  nickname: 'Esper Hair',
   era: 'SNES',
-  originTag: 'Crystal VI',
+  originTag: 'Final Fantasy VI',
   archetype: 'zoner',
   archetypeLabel: 'Magic Trance Mage',
   gridSize: 24,
@@ -247,9 +248,10 @@ const TRAIN_SUPLEX_PALETTES: PalettePreset[] = [
 
 export const TRAIN_SUPLEX_BLUEPRINT: FighterBlueprint = {
   id: 'train-suplex',
-  name: 'Train Suplex',
+  name: 'Sabin',
+  nickname: 'Train Suplex',
   era: 'SNES',
-  originTag: 'Crystal VI',
+  originTag: 'Final Fantasy VI',
   archetype: 'heavy-grappler',
   archetypeLabel: 'Blitz Power Monk',
   gridSize: 24,
@@ -392,9 +394,10 @@ const LAUGH_CLOWN_PALETTES: PalettePreset[] = [
 
 export const LAUGH_CLOWN_BLUEPRINT: FighterBlueprint = {
   id: 'laugh-clown',
-  name: 'Laugh Clown',
+  name: 'Kefka',
+  nickname: 'Laugh Clown',
   era: 'SNES',
-  originTag: 'Crystal VI',
+  originTag: 'Final Fantasy VI',
   archetype: 'zoner',
   archetypeLabel: 'Chaos Magic Jester',
   gridSize: 24,

@@ -45,10 +45,10 @@ const PRESET_ANGLES: Record<
   CameraPreset,
   { pitchDeg: number; yawDeg: number; rollDeg: number; baseZoom: number }
 > = {
-  SIDE_25D: { pitchDeg: 13, yawDeg: 0, rollDeg: 0, baseZoom: 1.18 },
-  ISOMETRIC: { pitchDeg: 35, yawDeg: 28, rollDeg: 0, baseZoom: 1.0 },
-  TOP_DOWN: { pitchDeg: 62, yawDeg: 0, rollDeg: 0, baseZoom: 1.04 },
-  THIRD_PERSON: { pitchDeg: 16, yawDeg: -26, rollDeg: 0, baseZoom: 1.24 },
+  SIDE_25D: { pitchDeg: 13, yawDeg: 0, rollDeg: 0, baseZoom: 1.04 },
+  ISOMETRIC: { pitchDeg: 35, yawDeg: 28, rollDeg: 0, baseZoom: 0.88 },
+  TOP_DOWN: { pitchDeg: 62, yawDeg: 0, rollDeg: 0, baseZoom: 0.92 },
+  THIRD_PERSON: { pitchDeg: 16, yawDeg: -26, rollDeg: 0, baseZoom: 1.14 },
 };
 
 export function createCameraRig(preset: CameraPreset = 'SIDE_25D'): CameraRig {
@@ -77,8 +77,8 @@ export function triggerCameraShake(cam: CameraRig, amplitude: number): void {
 
 export function triggerKoZoom(cam: CameraRig, x: number, y: number): void {
   cam.koZoomTimer = 34;
-  cam.koFocusX = Math.max(-150, Math.min(150, x * 0.45));
-  cam.koFocusY = Math.max(-60, Math.min(60, y * 0.45));
+  cam.koFocusX = Math.max(-230, Math.min(230, x * 0.45));
+  cam.koFocusY = Math.max(-85, Math.min(85, y * 0.45));
   triggerCameraShake(cam, 10);
 }
 
@@ -123,15 +123,15 @@ export function stepCameraRig(
     } else {
       const midX = (minX + maxX) * 0.5;
       const midY = (minY + maxY) * 0.5 - 6;
-      targetX = Math.max(-90, Math.min(90, midX * 0.52));
-      targetY = Math.max(-55, Math.min(36, midY * 0.45));
+      targetX = Math.max(-165, Math.min(165, midX * 0.58));
+      targetY = Math.max(-82, Math.min(52, midY * 0.48));
 
-      const spanX = Math.max(115, maxX - minX + 110);
-      const spanY = Math.max(85, maxY - minY + 90);
-      const fitX = (VIRTUAL_WIDTH * 0.84) / spanX;
-      const fitY = (VIRTUAL_HEIGHT * 0.76) / spanY;
+      const spanX = Math.max(155, maxX - minX + 135);
+      const spanY = Math.max(100, maxY - minY + 100);
+      const fitX = (VIRTUAL_WIDTH * 0.88) / spanX;
+      const fitY = (VIRTUAL_HEIGHT * 0.8) / spanY;
       const dynamicFit = Math.min(fitX, fitY);
-      targetZoom = Math.max(0.76, Math.min(cfg.baseZoom * 1.18, dynamicFit * 0.62));
+      targetZoom = Math.max(0.56, Math.min(cfg.baseZoom * 1.18, dynamicFit * 0.66));
     }
   }
 

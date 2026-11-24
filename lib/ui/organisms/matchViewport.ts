@@ -1,15 +1,15 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { Play, RotateCcw, Trophy, Users } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Play, RotateCcw } from 'lucide-react';
 import type { FighterBlueprint, GraphicsEra } from '../../types/fighter';
 import type { CameraPreset, HudSnapshot, MatchConfig } from '../../types/protocol';
 import type { StageManifest } from '../../types/stage';
 import { chiptuneAudio } from '../../io/chiptuneAudio';
-import { resolveFighterForEra } from '../../roster/eraResolver';
 import { useMatchEngine } from '../../hooks/useMatchEngine';
+import { useVictoryTransition } from '../../hooks/useVictoryTransition';
 import { ArcadeButton } from '../atoms/button';
-import { SpriteCanvas } from '../atoms/spriteCanvas';
 import { CameraSwitcher } from '../molecules/cameraSwitcher';
 import { HudFighterCard } from '../molecules/hudFighterCard';
 
@@ -20,9 +20,15 @@ export interface MatchViewportProps {
   musicOpen: boolean;
   onToggleEra: () => void;
   onToggleMusic: () => void;
+  onMatchComplete: (hud: HudSnapshot) => void;
   onExitToCharacterSelect: () => void;
   onExitToStageSelect: () => void;
 }
+
+const GAME_STROKE_STYLE: React.CSSProperties = {
+  textShadow:
+    '4px 4px 0 #000, -4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 0 12px 28px rgba(0,0,0,0.92)',
+};
 
 function renderPauseModal(
   stageName: string,
@@ -36,16 +42,16 @@ function renderPauseModal(
     { className: 'fixed inset-0 bg-[#0B1020]/78 backdrop-blur-xs flex items-center justify-center p-6 z-30' },
     React.createElement(
       'div',
-      { className: 'w-full max-w-md rounded-lg bg-[#141C2F] border border-[#2B3858] p-6 flex flex-col gap-5' },
+      { className: 'w-full max-w-md bg-[#141C2F] border-[3px] border-black shadow-[8px_8px_0_#000] p-6 flex flex-col gap-5' },
       React.createElement(
         'div',
         null,
-        React.createElement('h2', { className: 'font-display text-2xl font-extrabold text-white' }, 'Match Paused'),
+        React.createElement('h2', { className: 'font-display text-2xl font-black uppercase text-white' }, 'Match Paused'),
         React.createElement('p', { className: 'text-xs text-[#94A3B8] mt-1' }, `${stageName} · Press Esc to resume`),
       ),
       React.createElement(
         'div',
-        { className: 'rounded-md bg-[#0B1020] border border-[#2B3858] p-3.5 text-xs text-[#CBD5E1] flex flex-col gap-1.5' },
+        { className: 'bg-[#0B1020] border border-[#2B3858] p-3.5 text-xs text-[#CBD5E1] flex flex-col gap-1.5' },
         React.createElement('div', { className: 'font-semibold text-white' }, 'Controls Reference'),
         React.createElement('div', null, 'P1: WASD + Space (Triple Jump & Wall Jump) · Push into stage walls to Wall Cling'),
         React.createElement('div', null, 'P1 Combat: J Attack · K Smash · L Special · W+L Recovery · Shift Shield'),
@@ -78,84 +84,30 @@ function renderPauseModal(
   );
 }
 
-function renderVictoryModal(
-  winnerSlot: 0 | 1,
-  hud: HudSnapshot,
-  fighters: [FighterBlueprint, FighterBlueprint],
-  matchConfig: MatchConfig,
-  activeEra: GraphicsEra,
-  onRematch: () => void,
-  onCharSelect: () => void,
-): React.ReactElement {
-  const resolvedWinner = resolveFighterForEra(fighters[winnerSlot], activeEra);
-  const palIdx = matchConfig.players[winnerSlot].paletteIndex;
-  const winnerPalette = resolvedWinner.palettes[palIdx]?.colors ?? resolvedWinner.palettes[0].colors;
-
+function renderGameFinishSplash(): React.ReactElement {
   return React.createElement(
     'div',
-    { className: 'fixed inset-0 bg-[#0B1020]/82 backdrop-blur-xs flex items-center justify-center p-6 z-30' },
+    {
+      className:
+        'pointer-events-none fixed inset-0 z-30 flex items-center justify-center bg-black/35',
+    },
     React.createElement(
-      'div',
-      { className: 'w-full max-w-md rounded-lg bg-[#141C2F] border border-[#F59E0B] p-6 flex flex-col items-center text-center gap-5' },
+      motion.div,
+      {
+        initial: { scale: 2.6, rotate: -10, opacity: 0 },
+        animate: { scale: 1, rotate: -4, opacity: 1 },
+        transition: { type: 'spring', stiffness: 300, damping: 18 },
+        className:
+          'px-10 py-4 bg-gradient-to-b from-[#FDE047] via-[#F59E0B] to-[#DC2626] border-[6px] border-black shadow-[10px_10px_0_#000]',
+      },
       React.createElement(
-        'div',
-        { className: 'flex items-center gap-2 text-[#F59E0B] font-semibold text-sm' },
-        React.createElement(Trophy, { className: 'w-4 h-4' }),
-        `Player ${winnerSlot + 1} Wins`,
-      ),
-      React.createElement(
-        'h2',
-        { className: 'font-display text-3xl font-extrabold text-white' },
-        `${fighters[winnerSlot].name} Victory`,
-      ),
-      React.createElement(
-        'div',
-        { className: 'w-28 h-28 rounded-lg bg-[#0B1020] border border-[#2B3858] flex items-center justify-center' },
-        React.createElement(SpriteCanvas, {
-          pixelChart: resolvedWinner.pixelChart,
-          palette: winnerPalette,
-          animState: 'jump',
-          sizePx: 96,
-          animate: true,
-        }),
-      ),
-      React.createElement(
-        'div',
-        { className: 'w-full grid grid-cols-2 gap-3 rounded-md bg-[#0B1020] border border-[#2B3858] p-3 text-xs' },
-        ...hud.fighters.map((fSnap) =>
-          React.createElement(
-            'div',
-            { key: fSnap.slot, className: 'flex flex-col gap-0.5' },
-            React.createElement(
-              'span',
-              { className: 'font-semibold', style: { color: fSnap.slot === 0 ? '#EF4444' : '#3B82F6' } },
-              `P${fSnap.slot + 1} · ${fSnap.name}`,
-            ),
-            React.createElement(
-              'span',
-              { className: 'font-mono tabular-nums text-[#CBD5E1]' },
-              `${fSnap.kosScored} KOs · ${fSnap.damageDealt}% dealt`,
-            ),
-          ),
-        ),
-      ),
-      React.createElement(
-        'div',
-        { className: 'w-full flex items-center gap-3' },
-        React.createElement(ArcadeButton, {
-          label: 'Rematch',
-          variant: 'primary',
-          className: 'flex-1',
-          icon: React.createElement(RotateCcw, { className: 'w-4 h-4' }),
-          onClick: onRematch,
-        }),
-        React.createElement(ArcadeButton, {
-          label: 'Fighters',
-          variant: 'secondary',
-          className: 'flex-1',
-          icon: React.createElement(Users, { className: 'w-4 h-4' }),
-          onClick: onCharSelect,
-        }),
+        'span',
+        {
+          className:
+            'font-display font-black italic uppercase text-6xl sm:text-8xl tracking-tight text-white block leading-none',
+          style: GAME_STROKE_STYLE,
+        },
+        'GAME!',
       ),
     ),
   );
@@ -236,7 +188,7 @@ function renderEngineErrorModal(
     { className: 'fixed inset-0 z-30 flex items-center justify-center bg-[#0B1020]/90 p-6' },
     React.createElement(
       'div',
-      { className: 'max-w-md rounded-lg bg-[#141C2F] border border-[#EF4444]/50 p-6 text-center flex flex-col gap-4' },
+      { className: 'max-w-md bg-[#141C2F] border border-[#EF4444]/50 p-6 text-center flex flex-col gap-4' },
       React.createElement('h2', { className: 'font-display text-lg font-bold text-white' }, 'Renderer Error'),
       React.createElement('p', { className: 'text-sm text-[#CBD5E1]' }, engineError),
       React.createElement(ArcadeButton, {
@@ -250,11 +202,8 @@ function renderEngineErrorModal(
 
 interface OverlayParams {
   engineError: string | null;
-  hud: HudSnapshot | null;
   model: ViewportModel;
   stageName: string;
-  fighters: [FighterBlueprint, FighterBlueprint];
-  matchConfig: MatchConfig;
   onResume: () => void;
   onRematch: () => void;
   onStageSelect: () => void;
@@ -265,16 +214,8 @@ function renderActiveOverlay(p: OverlayParams): React.ReactElement | null {
   if (p.engineError) {
     return renderEngineErrorModal(p.engineError, p.onCharSelect);
   }
-  if (p.model.winnerSlot !== null && p.hud) {
-    return renderVictoryModal(
-      p.model.winnerSlot,
-      p.hud,
-      p.fighters,
-      p.matchConfig,
-      p.model.activeEra,
-      p.onRematch,
-      p.onCharSelect,
-    );
+  if (p.model.winnerSlot !== null) {
+    return renderGameFinishSplash();
   }
   if (p.model.paused) {
     return renderPauseModal(
@@ -296,12 +237,14 @@ export function MatchViewport(props: MatchViewportProps): React.ReactElement {
     musicOpen,
     onToggleEra,
     onToggleMusic,
+    onMatchComplete,
     onExitToCharacterSelect,
     onExitToStageSelect,
   } = props;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasHostRef = useRef<HTMLDivElement | null>(null);
+
   const { state, selectCamera, toggleControl, restartMatch } = useMatchEngine(
     containerRef,
     canvasHostRef,
@@ -311,6 +254,7 @@ export function MatchViewport(props: MatchViewportProps): React.ReactElement {
     onToggleEra,
   );
   const model = deriveViewportModel(state.hud, matchConfig);
+  useVictoryTransition(model.winnerSlot, state.hud, onMatchComplete);
 
   const handleToggleEra = () => {
     chiptuneAudio.playMenuTick();
@@ -345,11 +289,8 @@ export function MatchViewport(props: MatchViewportProps): React.ReactElement {
     renderHudCards(state.hud, fighters, model.activeEra, model.p2ControlLabel),
     renderActiveOverlay({
       engineError: state.engineError,
-      hud: state.hud,
       model,
       stageName: stage.name,
-      fighters,
-      matchConfig,
       onResume: handleTogglePause,
       onRematch: restartMatch,
       onStageSelect: onExitToStageSelect,

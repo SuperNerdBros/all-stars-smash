@@ -590,9 +590,10 @@ const SNES_PALETTES: PalettePreset[] = [
 
 export const LUIGI_BLUEPRINT: FighterBlueprint = {
   id: 'luigi',
-  name: 'More Stash',
+  name: 'Luigi',
+  nickname: 'More Stash',
   era: 'NES',
-  originTag: 'Plumber Bros.',
+  originTag: 'Super Mario Bros.',
   archetype: 'high-jumper',
   archetypeLabel: 'Floaty High-Jumper',
   gridSize: 16,
