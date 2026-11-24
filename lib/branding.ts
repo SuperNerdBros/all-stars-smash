@@ -4,13 +4,13 @@
  */
 export const BRAND = {
   /** Small kicker above the main wordmark. */
-  kicker: 'SUPER',
+  kicker: "THE SUPER DUPER",
   /** Main wordmark line. */
-  wordmark: 'ALL STARS!',
+  wordmark: "All Stars",
   /** Banner line under the wordmark. */
-  banner: "THE LATE 1900'S",
+  banner: "Smmmaaaash!",
   /** Plain-text full title for <title>, metadata, share cards. */
   fullTitle: "Super All Stars! : The Late 1900's",
-  tagline: 'A 2.5D retro platform fighter',
-  githubUrl: 'https://github.com/xopherdeep/retro-ssb',
+  tagline: "A 2.5D retro platform fighter",
+  githubUrl: "https://github.com/xopherdeep/retro-ssb",
 } as const;
