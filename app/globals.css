@@ -11,3 +11,29 @@
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
+
+@keyframes roster-rainbow-flow {
+  0% {
+    background-position: 0% 25%;
+  }
+  100% {
+    background-position: 100% 75%;
+  }
+}
+
+.roster-rainbow-grid {
+  background-image: linear-gradient(
+    125deg,
+    #EF4444 0%,
+    #F97316 14%,
+    #FACC15 28%,
+    #22C55E 42%,
+    #06B6D4 56%,
+    #3B82F6 70%,
+    #8B5CF6 84%,
+    #EC4899 94%,
+    #EF4444 100%
+  );
+  background-size: 200% 200%;
+  animation: roster-rainbow-flow 16s ease-in-out infinite alternate;
+}

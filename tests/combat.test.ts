@@ -150,6 +150,38 @@ test('every built-in fighter derives a valid 23-slot moveset', () => {
   }
 });
 
+test('built-in roster has 50 unique fighters with valid palettes and era sprites', () => {
+  assert.equal(BUILTIN_FIGHTERS.length, 50);
+  const ids = new Set<string>();
+  for (const bp of BUILTIN_FIGHTERS) {
+    assert.equal(ids.has(bp.id), false, `duplicate fighter id: ${bp.id}`);
+    ids.add(bp.id);
+    assert.ok(bp.palettes.length >= 4, `${bp.id}: expected at least 4 palettes`);
+    for (const pal of bp.palettes) {
+      assert.equal(pal.colors.length, 16, `${bp.id} palette ${pal.name}: expected 16 colors`);
+      assert.equal(pal.colors[0], '', `${bp.id} palette ${pal.name}: index 0 must be transparent`);
+    }
+    const checkChart = (label: string, chart: typeof bp.pixelChart) => {
+      for (const [state, clip] of Object.entries(chart)) {
+        assert.ok(clip.frames.length > 0, `${bp.id} ${label}.${state}: empty frames`);
+        for (const frame of clip.frames) {
+          assert.ok(frame.length > 0, `${bp.id} ${label}.${state}: empty height`);
+          const w = frame[0].length;
+          assert.ok(w > 0, `${bp.id} ${label}.${state}: empty width`);
+          for (const row of frame) {
+            assert.equal(row.length, w, `${bp.id} ${label}.${state}: non-rectangular row`);
+          }
+        }
+      }
+    };
+    checkChart('pixelChart', bp.pixelChart);
+    if (bp.eraPacks) {
+      checkChart('NES', bp.eraPacks.NES.pixelChart);
+      checkChart('SNES_SEGA', bp.eraPacks.SNES_SEGA.pixelChart);
+    }
+  }
+});
+
 test('per-slot overrides merge over the template', () => {
   const bp = { ...BUILTIN_FIGHTERS[0], moves: { utilt: { damage: 42, hitbox: { width: 30 } } } };
   const m = buildFullMoveset(bp);
