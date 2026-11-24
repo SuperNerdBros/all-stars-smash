@@ -1,0 +1,13 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme inline {
+  --font-display: var(--font-display), system-ui, sans-serif;
+  --font-sans: var(--font-sans), system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
+}
+
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}

@@ -1,0 +1,81 @@
+import type { PalettePreset, PixelChart } from './palette';
+
+export type RetroEra = 'NES' | 'SNES';
+
+export type ArchetypeId =
+  | 'brawler'
+  | 'high-jumper'
+  | 'sword-hero'
+  | 'zoner'
+  | 'speedster'
+  | 'heavy-gunner';
+
+export interface HitboxDef {
+  offsetX: number;
+  offsetY: number;
+  width: number;
+  height: number;
+}
+
+export interface ProjectileDef {
+  speedX: number;
+  speedY: number;
+  gravity: number;
+  radius: number;
+  lifetime: number;
+  colorIndex: number;
+  glowIndex: number;
+  bounces?: boolean;
+}
+
+export interface MoveFrameData {
+  name: string;
+  startup: number;
+  active: number;
+  endlag: number;
+  hitbox: HitboxDef;
+  damage: number;
+  baseKnockback: number;
+  knockbackGrowth: number;
+  launchAngleDeg: number;
+  hitstop: number;
+  velocityBoostX?: number;
+  velocityBoostY?: number;
+  projectile?: ProjectileDef;
+}
+
+export interface FighterStats {
+  weight: number;
+  runSpeed: number;
+  airSpeed: number;
+  jumpForce: number;
+  doubleJumpForce: number;
+  maxJumps: number;
+  gravity: number;
+  fallSpeed: number;
+  fastFallSpeed: number;
+  traction: number;
+}
+
+export interface FighterMoveset {
+  jab: MoveFrameData;
+  smash: MoveFrameData;
+  aerial: MoveFrameData;
+  neutralSpecial: MoveFrameData;
+  upSpecial: MoveFrameData;
+}
+
+export interface FighterBlueprint {
+  id: string;
+  name: string;
+  era: RetroEra;
+  originTag: string;
+  archetype: ArchetypeId;
+  archetypeLabel: string;
+  gridSize: number;
+  palettes: PalettePreset[];
+  pixelChart: PixelChart;
+  stats: FighterStats;
+  moveset: FighterMoveset;
+  isCustom?: boolean;
+}
