@@ -164,8 +164,11 @@ export function computeCpuInputMask(
         mem.attackCooldown = difficulty === 'hard' ? 12 : 22;
       }
     } else if (absX >= 58 && absX < 155 && absY < 28 && pseudoRand < aggression * 0.35) {
-      mask |= dx >= 0 ? INPUT_RIGHT : INPUT_LEFT;
-      mask |= INPUT_SPECIAL;
+      // Neutral stick so it resolves to neutral-B (projectile), not side-B. Turn first if needed.
+      if (self.facing === (dx >= 0 ? 1 : -1)) {
+        mask &= ~(INPUT_LEFT | INPUT_RIGHT);
+        mask |= INPUT_SPECIAL;
+      }
       mem.attackCooldown = difficulty === 'hard' ? 32 : 52;
     }
   }

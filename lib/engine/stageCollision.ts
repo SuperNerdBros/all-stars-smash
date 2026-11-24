@@ -7,6 +7,7 @@ import {
   type FighterEntity,
   type SimulationState,
 } from './combatTypes';
+import { decayLaunch } from './combatFormulas';
 
 function handleWallFaceContact(
   sim: SimulationState,
@@ -24,6 +25,7 @@ function handleWallFaceContact(
     f.x = side === 1 ? faceX - HURTBOX_HALF_W : faceX + HURTBOX_HALF_W;
     if (f.hitstun > 0) {
       f.vx = side === 1 ? -Math.abs(f.vx) * 0.6 : Math.abs(f.vx) * 0.6;
+      f.kbVx = side === 1 ? -Math.abs(f.kbVx) * 0.6 : Math.abs(f.kbVx) * 0.6;
     } else {
       f.vx = side === 1 ? Math.min(0, f.vx) : Math.max(0, f.vx);
     }
@@ -85,6 +87,23 @@ function handleBlastZoneKo(sim: SimulationState, f: FighterEntity): void {
   f.damagePct = 0;
   f.hitstun = 0;
   f.moveKey = null;
+  // Spec §3.1: a KO clears the stale-move queue.
+  f.staleQueue = [];
+  f.kbVx = 0;
+  f.kbVy = 0;
+  f.pendingLaunch = null;
+  f.landingLagTimer = 0;
+  f.jumpSquatTimer = 0;
+  f.chargeFrames = 0;
+  f.moveChargeMult = 1;
+  if (f.holdingSlot !== null) {
+    sim.fighters[f.holdingSlot].grabbedBySlot = null;
+    f.holdingSlot = null;
+  }
+  if (f.grabbedBySlot !== null) {
+    sim.fighters[f.grabbedBySlot].holdingSlot = null;
+    f.grabbedBySlot = null;
+  }
   f.jumpsLeft = f.blueprint.stats.maxJumps;
   f.upSpecialUsed = false;
   f.shieldHp = 100;
@@ -102,6 +121,11 @@ export function integrateFighterStagePhysics(
 ): void {
   const isRespawning = f.respawnTimer > 0;
   if (isRespawning) return;
+  // Held fighters are positioned by their holder.
+  if (f.grabbedBySlot !== null) {
+    f.grounded = true;
+    return;
+  }
 
   const stats = f.blueprint.stats;
   const gravScale = sim.stage.gravityScale ?? 1;
@@ -118,8 +142,11 @@ export function integrateFighterStagePhysics(
     }
   }
 
-  f.x += f.vx;
-  f.y += f.vy;
+  f.x += f.vx + f.kbVx;
+  f.y += f.vy + f.kbVy;
+  const kbVyBefore = f.kbVy;
+  decayLaunch(f);
+  const totalVy = f.vy + kbVyBefore;
 
   const wasGrounded = f.grounded;
   f.grounded = false;
@@ -144,7 +171,7 @@ export function integrateFighterStagePhysics(
 
     const withinX = f.x + HURTBOX_HALF_W * 0.65 > left && f.x - HURTBOX_HALF_W * 0.65 < right;
     const snapMargin = 5 + Math.abs(pose.dy) + 1;
-    const crossingTop = !vol.decorative && withinX && f.vy >= -Math.abs(pose.dy) && prevY <= top + snapMargin && f.y >= top - Math.max(0, -pose.dy);
+    const crossingTop = !vol.decorative && withinX && totalVy >= -Math.abs(pose.dy) && prevY <= top + snapMargin && f.y >= top - Math.max(0, -pose.dy);
 
     if (crossingTop) {
       const droppingThrough = vol.passThrough && f.dropThroughTimer > 0;
@@ -165,8 +192,19 @@ export function integrateFighterStagePhysics(
         continue;
       }
 
+      // Meteor / downward launch: bounce off the ground instead of landing.
+      if (f.hitstun > 0 && kbVyBefore > 3) {
+        f.y = top - 1;
+        f.kbVy = -kbVyBefore * 0.8;
+        f.vy = 0;
+        spawnParticles(sim, f.x, top, 6, 'dust', '#CBD5E1', 2.2);
+        continue;
+      }
+
       // Land & inherit moving platform carry velocity
       f.y = top;
+      f.kbVy = 0;
+      f.onPassThrough = Boolean(vol.passThrough);
       f.x += pose.dx;
       f.vy = 0;
       f.grounded = true;

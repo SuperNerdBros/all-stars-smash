@@ -15,11 +15,21 @@ import {
 import {
   HURTBOX_HALF_W,
   HURTBOX_HEIGHT,
+  createCombatExtras,
   rectsOverlap,
   type ActiveMoveKey,
+  type CoreMoveKey,
   type ParticleEntity,
   type ProjectileEntity,
 } from './combatTypes';
+
+const CORE_TO_SLOT: Record<CoreMoveKey, ActiveMoveKey> = {
+  jab: 'jab',
+  smash: 'fsmash',
+  aerial: 'fair',
+  neutralSpecial: 'neutralSpecial',
+  upSpecial: 'upSpecial',
+};
 
 interface AttractFighter extends RenderableFighter {
   aiCooldown: number;
@@ -137,6 +147,7 @@ function createAttractFighter(
     moveKey: null,
     moveTick: 0,
     moveHitApplied: false,
+    ...createCombatExtras(blueprint),
     animState: 'idle',
     animTick: slot * 14,
     squashX: 1,
@@ -373,12 +384,12 @@ export class AttractArena {
     }
   }
 
-  private startMove(f: AttractFighter, key: ActiveMoveKey): void {
-    f.moveKey = key;
+  private startMove(f: AttractFighter, key: CoreMoveKey): void {
+    f.moveKey = CORE_TO_SLOT[key];
     f.moveTick = 0;
     f.moveHitApplied = false;
     f.moveHitSet.clear();
-    const move = f.blueprint.moveset[key];
+    const move = f.moves[f.moveKey ?? 'jab'];
     if (move.velocityBoostX) f.vx = move.velocityBoostX * f.facing * 0.85;
     if (move.velocityBoostY) f.vy = move.velocityBoostY;
     f.animState = key === 'neutralSpecial' || key === 'upSpecial' ? 'special' : 'attack';
@@ -387,7 +398,7 @@ export class AttractArena {
   private advanceActiveMove(f: AttractFighter): void {
     const key = f.moveKey;
     if (!key) return;
-    const move = f.blueprint.moveset[key];
+    const move = f.moves[f.moveKey ?? 'jab'];
     f.moveTick++;
 
     const spawnNow = Boolean(move.projectile) && f.moveTick === move.startup;
@@ -412,6 +423,7 @@ export class AttractArena {
         knockbackGrowth: move.knockbackGrowth,
         launchAngleDeg: move.launchAngleDeg,
         hitstop: move.hitstop,
+        moveSlot: f.moveKey ?? 'neutralSpecial',
       });
     }
 
@@ -503,7 +515,7 @@ export class AttractArena {
     for (const attacker of this.fighters) {
       const inactive = !attacker.moveKey || attacker.respawnTimer > 0;
       if (inactive || !attacker.moveKey) continue;
-      const move = attacker.blueprint.moveset[attacker.moveKey];
+      const move = attacker.moves[attacker.moveKey];
       const inWindow = attacker.moveTick >= move.startup && attacker.moveTick < move.startup + move.active;
       if (!inWindow) continue;
 

@@ -87,6 +87,7 @@ export function cloneFighterBlueprint(src: FighterBlueprint): FighterBlueprint {
         hitbox: { ...src.moveset.upSpecial.hitbox },
       },
     },
+    moves: src.moves ? structuredClone(src.moves) : undefined,
   };
 }
 

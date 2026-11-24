@@ -11,7 +11,7 @@ import { StageBackdropLoader } from './backdropLoader';
 import { drawAmbientStageVfx, drawStageBackdrop } from './ambientVfx';
 import { computeVolumeState } from './platformMotion';
 import {
-  getActiveHitbox,
+  getActiveHitboxes,
   HURTBOX_HALF_W,
   HURTBOX_HEIGHT,
   type FighterEntity,
@@ -464,8 +464,7 @@ export class SoftwareRenderer25D {
       ctx.fillRect(Math.round(hTL.sx), Math.round(hTL.sy), Math.round(hBR.sx - hTL.sx), Math.round(hBR.sy - hTL.sy));
       ctx.strokeRect(Math.round(hTL.sx), Math.round(hTL.sy), Math.round(hBR.sx - hTL.sx), Math.round(hBR.sy - hTL.sy));
 
-      const activeHb = getActiveHitbox(f as FighterEntity);
-      if (activeHb) {
+      for (const activeHb of getActiveHitboxes(f as FighterEntity)) {
         const aTL = projectPoint(cam, activeHb.x, activeHb.y, 3);
         const aBR = projectPoint(cam, activeHb.x + activeHb.w, activeHb.y + activeHb.h, 3);
         ctx.fillStyle = 'rgba(239, 68, 68, 0.35)';

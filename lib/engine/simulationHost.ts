@@ -21,6 +21,7 @@ import {
 import { bakeStageSlices, type BakedStageCache } from './stageBaker';
 import {
   createSimulationState,
+  refreshFighterMoves,
   stepSimulation,
   type SimulationState,
 } from './physics';
@@ -143,6 +144,7 @@ export class SimulationHost {
           for (let i = 0; i < 2; i++) {
             const resolved = resolveFighterForEra(this.rawFighters[i], this.graphicsEra);
             this.sim.fighters[i].blueprint = resolved;
+            refreshFighterMoves(this.sim.fighters[i]);
             this.bakedFighters[i] = bakeFighterSprites(resolved, this.sim.fighters[i].paletteIndex);
           }
         }
@@ -168,6 +170,7 @@ export class SimulationHost {
             if (this.rawFighters) this.rawFighters[i] = msg.fighter;
             const resolved = resolveFighterForEra(msg.fighter, this.graphicsEra);
             ent.blueprint = resolved;
+            refreshFighterMoves(ent);
             this.bakedFighters[i] = bakeFighterSprites(resolved, ent.paletteIndex);
           }
         }
@@ -281,7 +284,7 @@ export class SimulationHost {
         fighterId: f.blueprint.id,
         name: f.blueprint.name,
         paletteIndex: f.paletteIndex,
-        damagePct: f.damagePct,
+        damagePct: Math.floor(f.damagePct),
         stocks: f.stocks,
         maxStocks: f.maxStocks,
         shieldHp: Math.round(f.shieldHp),

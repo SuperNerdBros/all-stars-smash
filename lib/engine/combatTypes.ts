@@ -4,8 +4,21 @@ import type { StageManifest } from '../types/stage';
 import type { CpuDifficulty, PlayerControlType, SfxEvent } from '../types/protocol';
 import { createInputBuffer, type BufferedInputState } from './inputBuffer';
 import { createAiMemory, type AiMemory } from './aiController';
+import type { HitboxSpec, MoveSlot } from '../types/moves';
+import { buildFullMoveset, type FullMoveset } from '../roster/movesetBuilder';
 
-export type ActiveMoveKey = 'jab' | 'smash' | 'aerial' | 'neutralSpecial' | 'upSpecial';
+/** Any slot of the full move matrix. */
+export type ActiveMoveKey = MoveSlot;
+/** The 5 authored core moves (used by the attract-mode demo arena). */
+export type CoreMoveKey = 'jab' | 'smash' | 'aerial' | 'neutralSpecial' | 'upSpecial';
+
+/** Launch waiting for hitstop to finish so DI can be read on its last frame (spec §2.2). */
+export interface PendingLaunch {
+  kb: number;
+  /** World angle in degrees, 0 = +x, 90 = up. */
+  worldAngleDeg: number;
+  hitstun: number;
+}
 
 export interface ActiveHitboxWorld {
   x: number;
@@ -13,6 +26,8 @@ export interface ActiveHitboxWorld {
   w: number;
   h: number;
   move: MoveFrameData;
+  /** Resolved hitbox (id + physics overrides). */
+  spec: HitboxSpec;
 }
 
 export interface FighterEntity {
@@ -48,6 +63,32 @@ export interface FighterEntity {
   moveKey: ActiveMoveKey | null;
   moveTick: number;
   moveHitApplied: boolean;
+  /** Full derived move matrix for this blueprint. Rebuild via refreshFighterMoves(). */
+  moves: FullMoveset;
+  /** Tick of the last connected hit of the current move (multi-hit spacing). */
+  moveLastHitTick: number;
+  /** Buttons that started the current move; holding them charges a chargeable smash. */
+  moveTriggerMask: number;
+  chargeFrames: number;
+  /** Charge actually applied to the current move (locked when charging ends). */
+  moveChargeMult: number;
+  landingLagTimer: number;
+  jumpSquatTimer: number;
+  crouching: boolean;
+  running: boolean;
+  onPassThrough: boolean;
+  /** Newest-first queue of connected moves (spec §3.1). */
+  staleQueue: MoveSlot[];
+  /** Balloon launch vector, integrated on top of self-velocity. */
+  kbVx: number;
+  kbVy: number;
+  kbDecay: number;
+  pendingLaunch: PendingLaunch | null;
+  /** Slot of the fighter this one is holding, or null. */
+  holdingSlot: 0 | 1 | null;
+  /** Slot of the fighter holding this one, or null. */
+  grabbedBySlot: 0 | 1 | null;
+  grabTimer: number;
   animState: AnimState;
   animTick: number;
   squashX: number;
@@ -76,6 +117,8 @@ export interface ProjectileEntity {
   knockbackGrowth: number;
   launchAngleDeg: number;
   hitstop: number;
+  moveSlot: MoveSlot;
+  element?: HitboxSpec['element'];
 }
 
 export interface ParticleEntity {
@@ -99,6 +142,8 @@ export interface SimulationState {
   particles: ParticleEntity[];
   cpuDifficulty: CpuDifficulty;
   hitstopTimer: number;
+  /** Fighters currently frozen as the defender of a hit (DI/SDI is read for them). */
+  hitstopVictims: (0 | 1)[];
   matchTimeTicks: number;
   winnerSlot: 0 | 1 | null;
   nextProjId: number;
@@ -116,6 +161,38 @@ const PARTICLE_SPEC: Record<ParticleEntity['kind'], { size: number; life: number
   spark: { size: 3, life: 14 },
   dust: { size: 3, life: 14 },
 };
+
+type CombatExtras = Pick<
+  FighterEntity,
+  | 'moves' | 'moveLastHitTick' | 'moveTriggerMask' | 'chargeFrames' | 'moveChargeMult'
+  | 'landingLagTimer' | 'jumpSquatTimer' | 'crouching' | 'running' | 'onPassThrough'
+  | 'staleQueue' | 'kbVx' | 'kbVy' | 'kbDecay' | 'pendingLaunch'
+  | 'holdingSlot' | 'grabbedBySlot' | 'grabTimer'
+>;
+
+/** Default values for the combat-engine fields added for the full move matrix. */
+export function createCombatExtras(blueprint: FighterBlueprint): CombatExtras {
+  return {
+    moves: buildFullMoveset(blueprint),
+    moveLastHitTick: -999,
+    moveTriggerMask: 0,
+    chargeFrames: 0,
+    moveChargeMult: 1,
+    landingLagTimer: 0,
+    jumpSquatTimer: 0,
+    crouching: false,
+    running: false,
+    onPassThrough: false,
+    staleQueue: [],
+    kbVx: 0,
+    kbVy: 0,
+    kbDecay: 0,
+    pendingLaunch: null,
+    holdingSlot: null,
+    grabbedBySlot: null,
+    grabTimer: 0,
+  };
+}
 
 function createFighterEntity(
   slot: 0 | 1,
@@ -158,6 +235,7 @@ function createFighterEntity(
     moveKey: null,
     moveTick: 0,
     moveHitApplied: false,
+    ...createCombatExtras(blueprint),
     animState: 'idle',
     animTick: 0,
     squashX: 1,
@@ -187,6 +265,7 @@ export function createSimulationState(
     particles: [],
     cpuDifficulty,
     hitstopTimer: 0,
+    hitstopVictims: [],
     matchTimeTicks: 0,
     winnerSlot: null,
     nextProjId: 1,
@@ -196,23 +275,28 @@ export function createSimulationState(
   };
 }
 
+export function refreshFighterMoves(f: FighterEntity): void {
+  f.moves = buildFullMoveset(f.blueprint);
+}
+
+/** All live hitboxes of the current move, sorted by ascending id (spec §3.3). */
+export function getActiveHitboxes(f: FighterEntity): ActiveHitboxWorld[] {
+  if (!f.moveKey) return [];
+  const move = f.moves[f.moveKey];
+  if (f.moveTick < move.startup || f.moveTick >= move.startup + move.active) return [];
+  const specs: HitboxSpec[] = move.hitboxes?.length
+    ? [...move.hitboxes].sort((a, b) => a.id - b.id)
+    : [{ id: 0, ...move.hitbox }];
+  return specs.map((spec) => {
+    const cx = f.x + spec.offsetX * f.facing;
+    const cy = f.y + spec.offsetY;
+    return { x: cx - spec.width * 0.5, y: cy - spec.height * 0.5, w: spec.width, h: spec.height, move, spec };
+  });
+}
+
+/** First (lowest-id) active hitbox, kept for older call sites. */
 export function getActiveHitbox(f: FighterEntity): ActiveHitboxWorld | null {
-  if (!f.moveKey) return null;
-  const move = f.blueprint.moveset[f.moveKey];
-  const isBeforeActive = f.moveTick < move.startup;
-  const isAfterActive = f.moveTick >= move.startup + move.active;
-  if (isBeforeActive || isAfterActive) {
-    return null;
-  }
-  const cx = f.x + move.hitbox.offsetX * f.facing;
-  const cy = f.y + move.hitbox.offsetY;
-  return {
-    x: cx - move.hitbox.width * 0.5,
-    y: cy - move.hitbox.height * 0.5,
-    w: move.hitbox.width,
-    h: move.hitbox.height,
-    move,
-  };
+  return getActiveHitboxes(f)[0] ?? null;
 }
 
 export function rectsOverlap(

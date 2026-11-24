@@ -11,6 +11,13 @@ export const INPUT_ATTACK = 1 << 5;
 export const INPUT_SMASH = 1 << 6;
 export const INPUT_SPECIAL = 1 << 7;
 export const INPUT_SHIELD = 1 << 8;
+/** Right analog stick ("C-stick"): smash attack on the ground, aerial in the air. */
+export const INPUT_CSTICK_LEFT = 1 << 9;
+export const INPUT_CSTICK_RIGHT = 1 << 10;
+export const INPUT_CSTICK_UP = 1 << 11;
+export const INPUT_CSTICK_DOWN = 1 << 12;
+export const INPUT_GRAB = 1 << 13;
+export const INPUT_CSTICK_ANY = INPUT_CSTICK_LEFT | INPUT_CSTICK_RIGHT | INPUT_CSTICK_UP | INPUT_CSTICK_DOWN;
 
 export type CameraPreset =
   | 'SIDE_25D'

@@ -1,5 +1,10 @@
 import {
   INPUT_ATTACK,
+  INPUT_CSTICK_DOWN,
+  INPUT_CSTICK_LEFT,
+  INPUT_CSTICK_RIGHT,
+  INPUT_CSTICK_UP,
+  INPUT_GRAB,
   INPUT_DOWN,
   INPUT_JUMP,
   INPUT_LEFT,
@@ -134,11 +139,13 @@ export class MainThreadInputPoller {
     if (k.has('KeyD')) m |= INPUT_RIGHT;
     if (k.has('KeyW')) m |= INPUT_UP;
     if (k.has('KeyS')) m |= INPUT_DOWN;
-    if (k.has('Space') || k.has('KeyW')) m |= INPUT_JUMP;
+    // W is up only (tap-jump off) so up-tilt / up-smash / up-special are reachable; Space jumps.
+    if (k.has('Space')) m |= INPUT_JUMP;
     if (k.has('KeyJ') || k.has('KeyF')) m |= INPUT_ATTACK;
     if (k.has('KeyK') || k.has('KeyG')) m |= INPUT_SMASH;
     if (k.has('KeyL') || k.has('KeyR')) m |= INPUT_SPECIAL;
     if (k.has('ShiftLeft') || k.has('KeyU')) m |= INPUT_SHIELD;
+    if (k.has('KeyI')) m |= INPUT_GRAB;
 
     m |= this.sampleGamepadMask(0);
     return m;
@@ -155,6 +162,7 @@ export class MainThreadInputPoller {
     if (k.has('Numpad2') || k.has('Period')) m |= INPUT_SMASH;
     if (k.has('Numpad3') || k.has('Slash')) m |= INPUT_SPECIAL;
     if (k.has('ShiftRight') || k.has('Numpad0')) m |= INPUT_SHIELD;
+    if (k.has('Numpad4') || k.has('Semicolon')) m |= INPUT_GRAB;
 
     m |= this.sampleGamepadMask(1);
     return m;
@@ -177,7 +185,15 @@ export class MainThreadInputPoller {
     if (pad.buttons[0]?.pressed || pad.buttons[3]?.pressed) m |= INPUT_JUMP;
     if (pad.buttons[2]?.pressed) m |= INPUT_ATTACK;
     if (pad.buttons[1]?.pressed) m |= INPUT_SPECIAL;
-    if (pad.buttons[5]?.pressed || pad.buttons[7]?.pressed) m |= INPUT_SMASH;
+    if (pad.buttons[7]?.pressed) m |= INPUT_SMASH;
+    if (pad.buttons[5]?.pressed) m |= INPUT_GRAB;
+    // Right stick = C-stick (smash attacks on the ground, aerials in the air).
+    const ax2 = pad.axes[2] ?? 0;
+    const ax3 = pad.axes[3] ?? 0;
+    if (Math.max(Math.abs(ax2), Math.abs(ax3)) > 0.6) {
+      if (Math.abs(ax2) >= Math.abs(ax3)) m |= ax2 < 0 ? INPUT_CSTICK_LEFT : INPUT_CSTICK_RIGHT;
+      else m |= ax3 < 0 ? INPUT_CSTICK_UP : INPUT_CSTICK_DOWN;
+    }
     if (pad.buttons[4]?.pressed || pad.buttons[6]?.pressed) m |= INPUT_SHIELD;
     return m;
   }
