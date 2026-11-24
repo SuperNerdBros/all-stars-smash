@@ -1,4 +1,4 @@
-# Builds the static site and publishes it to GitHub Pages at skb.forthexp.com (CNAME in public/).
+# Builds the static site and publishes it to GitHub Pages at smash.forthexp.com (CNAME in public/).
 name: Deploy to GitHub Pages
 
 on:
@@ -28,7 +28,7 @@ jobs:
       - run: npx next build
         env:
           STATIC_EXPORT: '1'
-          NEXT_PUBLIC_PLAY_API: https://skb-api.forthexp.com
+          NEXT_PUBLIC_PLAY_API: https://smash-api.forthexp.com
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out
