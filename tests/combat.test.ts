@@ -311,3 +311,70 @@ test('snapshot survives JSON (host → guest resync)', () => {
   }
   assert.equal(checksum(other), checksum(sim));
 });
+
+// ── Rollback session over a fake laggy network ──────────────────
+
+import { RollbackSession } from '../lib/net/rollbackSession';
+
+function sixSeatSim(): SimulationState {
+  // seats 0,1,2 human (one per peer), 3..5 CPU
+  const specs = [0, 1, 2, 3, 4, 5].map((i) => ({
+    blueprint: BUILTIN_FIGHTERS[(i * 4) % BUILTIN_FIGHTERS.length],
+    paletteIndex: 0,
+    controlType: (i < 3 ? 'human' : 'cpu') as 'human' | 'cpu',
+  }));
+  return createSimulationState(specs, 'normal', STAGE_MANIFESTS[0], 4);
+}
+
+test('3 peers with 3-9 frame jittery lag stay in sync (rollback + seat event)', () => {
+  const peers = [0, 1, 2].map((seat) => new RollbackSession(sixSeatSim(), { localSeats: [seat], inputDelay: 2, maxRollback: 10 }));
+  // In-flight packets: deliver at tick `at`.
+  const wire: { at: number; to: number; seat: number; frame: number; mask: number }[] = [];
+  let rng = 12345;
+  const rand = () => ((rng = (rng * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const event = { frame: 700, seat: 3, controlType: 'human' as const };
+
+  for (let tick = 0; tick < 2400; tick++) {
+    for (const [i, p] of peers.entries()) {
+      // deliver arrived packets
+      for (let k = wire.length - 1; k >= 0; k--) {
+        const pk = wire[k];
+        if (pk.to === i && pk.at <= tick) {
+          p.addRemoteInput(pk.seat, pk.frame, pk.mask);
+          wire.splice(k, 1);
+        }
+      }
+      if (tick === 690) p.addEvent(event); // host announces; everyone applies at frame 700
+      if (p.canAdvance() || p.frame - p.confirmedFrame() <= p.maxRollback) {
+        const seats = tick >= 690 && i === 0 ? [0, 3] : [i];
+        if (tick === 690 && i === 0) p.localSeats.push(3);
+        for (const seat of seats) {
+          const already = p['inputs'][seat][p.frame + p.inputDelay] !== undefined;
+          if (already) continue;
+          const mask = scriptedMask(seat, p.frame);
+          const frame = p.addLocalInput(seat, mask);
+          for (let to = 0; to < 3; to++) if (to !== i) wire.push({ at: tick + 3 + Math.floor(rand() * 7), to, seat, frame, mask });
+        }
+      }
+      p.advance();
+    }
+  }
+  // Let everything drain.
+  for (let tick = 2400; tick < 2500; tick++) {
+    for (const [i, p] of peers.entries()) {
+      for (let k = wire.length - 1; k >= 0; k--) {
+        const pk = wire[k];
+        if (pk.to === i) { p.addRemoteInput(pk.seat, pk.frame, pk.mask); wire.splice(k, 1); }
+      }
+      p.advance();
+    }
+  }
+  const common = Math.min(...peers.map((p) => p.confirmedFrame())) - 1;
+  assert.ok(common > 1500, `progressed (common confirmed ${common})`);
+  const sums = peers.map((p) => p.checksumAt(common));
+  assert.ok(sums[0] !== undefined);
+  assert.equal(sums[1], sums[0], 'guest 1 matches host');
+  assert.equal(sums[2], sums[0], 'guest 2 matches host');
+  assert.ok(peers.some((p) => p.stats.rollbacks > 0), 'rollbacks actually happened');
+  assert.equal(peers[1].sim.fighters[3].controlType, 'human', 'seat event applied on guests');
+});
