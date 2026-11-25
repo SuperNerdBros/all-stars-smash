@@ -1,145 +1,234 @@
+import type { GraphicsEra } from '../types/fighter';
 import type { SfxEvent } from '../types/protocol';
+import { audioMixer } from './audioMixer';
+import { SFX_CATALOG_BY_ID } from './sfxCatalog';
+import { SFX_RECIPES, type SynthRig } from './sfxSynth';
+
+const REMAP_STORAGE_KEY = 'all-stars.sfxRemap';
+/** Makeup gain into the compressor so retro SFX cut cleanly over mastered SoundCloud OSTs. */
+const SFX_MAKEUP_GAIN = 2.4;
+
+export interface PlaySfxOptions {
+  readonly bypassRemap?: boolean;
+  readonly eraOverride?: GraphicsEra;
+}
+
+export type SfxRemapTable = Partial<Record<SfxEvent, SfxEvent>>;
+
+function loadStoredRemaps(): SfxRemapTable {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(REMAP_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const clean: SfxRemapTable = {};
+    for (const [key, val] of Object.entries(parsed)) {
+      const isValidPair =
+        key in SFX_CATALOG_BY_ID &&
+        typeof val === 'string' &&
+        val in SFX_CATALOG_BY_ID &&
+        key !== val;
+      if (isValidPair) {
+        clean[key as SfxEvent] = val as SfxEvent;
+      }
+    }
+    return clean;
+  } catch {
+    // chemx-allow: best-effort fallback when storage is unavailable
+    return {};
+  }
+}
+
+function createWhiteNoiseBuffer(ctx: AudioContext): AudioBuffer {
+  const length = Math.floor(ctx.sampleRate * 1.2);
+  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+  const channel = buffer.getChannelData(0);
+  for (let i = 0; i < length; i++) {
+    channel[i] = Math.random() * 2 - 1;
+  }
+  return buffer;
+}
 
 /**
- * Pure Web Audio API NES-style chiptune SFX synthesizer (pulse, triangle, noise).
+ * Pure Web Audio API multi-layered retro SFX engine synced to audioMixer,
+ * with studio compression/makeup gain, NES/16-Bit profiles, and live analyser output.
  */
 class ChiptuneAudioEngine {
   private ctx: AudioContext | null = null;
-  private muted = false;
+  private masterGain: GainNode | null = null;
+  private analyser: AnalyserNode | null = null;
+  private noiseBuffer: AudioBuffer | null = null;
+  private eraProfile: GraphicsEra = 'SNES_SEGA';
+  private remaps: SfxRemapTable = {};
+  private hydrated = false;
+
+  private hydrate(): void {
+    const shouldHydrate = !this.hydrated && typeof window !== 'undefined';
+    if (!shouldHydrate) return;
+    this.hydrated = true;
+    this.remaps = loadStoredRemaps();
+    audioMixer.subscribe(() => this.syncMasterGain());
+  }
 
   public isMuted(): boolean {
-    return this.muted;
+    return audioMixer.getSnapshot().sfxMuted;
   }
 
   public setMuted(next: boolean): void {
-    this.muted = next;
+    audioMixer.setSfxMuted(next);
+    this.syncMasterGain();
   }
 
   public toggleMute(): boolean {
-    this.muted = !this.muted;
-    return this.muted;
+    const next = audioMixer.toggleSfxMute();
+    this.syncMasterGain();
+    return next;
   }
 
-  private ensureContext(): AudioContext | null {
-    if (this.muted || typeof window === 'undefined') return null;
-    if (!this.ctx) {
-      const Ctor =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext?: typeof AudioContext })
-          .webkitAudioContext;
-      if (!Ctor) return null;
-      this.ctx = new Ctor();
+  public getVolume(): number {
+    return audioMixer.getSnapshot().sfxVolume / 100;
+  }
+
+  public setVolume(next: number): void {
+    audioMixer.setSfxVolume(Math.round(next * 100));
+    this.syncMasterGain();
+  }
+
+  public getEraProfile(): GraphicsEra {
+    return this.eraProfile;
+  }
+
+  public setEraProfile(era: GraphicsEra): void {
+    this.eraProfile = era;
+  }
+
+  public getEventMappings(): Readonly<SfxRemapTable> {
+    this.hydrate();
+    return { ...this.remaps };
+  }
+
+  public resolveMappedEvent(event: SfxEvent): SfxEvent {
+    this.hydrate();
+    return this.remaps[event] ?? event;
+  }
+
+  public setEventMapping(source: SfxEvent, target: SfxEvent): void {
+    this.hydrate();
+    if (source === target) {
+      delete this.remaps[source];
+    } else {
+      this.remaps[source] = target;
     }
-    if (this.ctx.state === 'suspended') {
-      void this.ctx.resume();
-    }
-    return this.ctx;
+    this.persistRemaps();
+  }
+
+  public resetEventMappings(): void {
+    this.hydrate();
+    this.remaps = {};
+    this.persistRemaps();
+  }
+
+  public readWaveform(target: Uint8Array<ArrayBuffer>): boolean {
+    if (!this.analyser) return false;
+    this.analyser.getByteTimeDomainData(target);
+    return true;
   }
 
   public playMenuTick(): void {
-    this.tone('square', 660, 880, 0.045, 0.06);
+    this.playSfx('menuTick');
   }
 
   public playMenuConfirm(): void {
-    this.tone('square', 523.25, 783.99, 0.07, 0.08, 0);
-    this.tone('square', 783.99, 1046.5, 0.1, 0.08, 0.06);
+    this.playSfx('menuConfirm');
   }
 
-  public playSfx(event: SfxEvent): void {
-    switch (event) {
-      case 'jump':
-        this.tone('square', 220, 520, 0.09, 0.08);
-        break;
-      case 'doubleJump':
-        this.tone('square', 340, 740, 0.11, 0.08);
-        break;
-      case 'tripleJump':
-        this.tone('square', 460, 980, 0.13, 0.09);
-        this.tone('triangle', 680, 1180, 0.1, 0.07, 0.03);
-        break;
-      case 'wallJump':
-        this.noiseBurst(0.035, 0.09);
-        this.tone('square', 300, 820, 0.1, 0.09);
-        break;
-      case 'shoot':
-        this.tone('square', 820, 260, 0.08, 0.07);
-        break;
-      case 'shield':
-        this.tone('triangle', 580, 420, 0.07, 0.1);
-        break;
-      case 'hitLight':
-        this.noiseBurst(0.06, 0.12);
-        this.tone('square', 260, 120, 0.07, 0.09);
-        break;
-      case 'hitHeavy':
-        this.noiseBurst(0.14, 0.18);
-        this.tone('sawtooth', 190, 58, 0.15, 0.14);
-        break;
-      case 'ko':
-        this.noiseBurst(0.28, 0.2);
-        this.tone('sawtooth', 320, 48, 0.34, 0.15);
-        break;
-      case 'victory': {
-        const notes = [523.25, 659.25, 783.99, 1046.5];
-        notes.forEach((n, idx) => {
-          this.tone('square', n, n * 1.01, 0.14, 0.09, idx * 0.1);
-        });
-        break;
-      }
+  public playMenuBack(): void {
+    this.playSfx('menuBack');
+  }
+
+  public playEraSwap(): void {
+    this.playSfx('eraSwap');
+  }
+
+  public playSfx(event: SfxEvent, options?: PlaySfxOptions): void {
+    this.hydrate();
+    const rig = this.ensureRig(options?.eraOverride ?? this.eraProfile);
+    if (!rig) return;
+
+    const targetEvent = options?.bypassRemap ? event : this.resolveMappedEvent(event);
+    const recipe = SFX_RECIPES[targetEvent] ?? SFX_RECIPES[event];
+    recipe(rig);
+  }
+
+  private persistRemaps(): void {
+    try {
+      window.localStorage.setItem(REMAP_STORAGE_KEY, JSON.stringify(this.remaps));
+    } catch {
+      // chemx-allow: best-effort persist remap preferences in sandboxed storage
     }
   }
 
-  private tone(
-    type: OscillatorType,
-    startFreq: number,
-    endFreq: number,
-    duration: number,
-    volume: number,
-    delay = 0,
-  ): void {
-    const ctx = this.ensureContext();
-    if (!ctx) return;
-
-    const now = ctx.currentTime + delay;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = type;
-    osc.frequency.setValueAtTime(startFreq, now);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), now + duration);
-
-    gain.gain.setValueAtTime(volume, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + duration + 0.01);
+  private computeGain(): number {
+    const { sfxMuted, sfxVolume } = audioMixer.getSnapshot();
+    if (sfxMuted) return 0;
+    return (sfxVolume / 100) * SFX_MAKEUP_GAIN;
   }
 
-  private noiseBurst(duration: number, volume: number): void {
-    const ctx = this.ensureContext();
-    if (!ctx) return;
+  private syncMasterGain(): void {
+    const hasGain = Boolean(this.masterGain && this.ctx);
+    if (!hasGain || !this.masterGain || !this.ctx) return;
+    this.masterGain.gain.setValueAtTime(this.computeGain(), this.ctx.currentTime);
+  }
 
-    const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1;
+  private ensureRig(era: GraphicsEra): SynthRig | null {
+    const snap = audioMixer.getSnapshot();
+    const isSilentOrServer = snap.sfxMuted || snap.sfxVolume <= 0 || typeof window === 'undefined';
+    if (isSilentOrServer) return null;
+
+    if (!this.ctx) {
+      const Ctor =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctor) return null;
+
+      const ctx = new Ctor();
+      const masterGain = ctx.createGain();
+      const compressor = ctx.createDynamicsCompressor();
+      const analyser = ctx.createAnalyser();
+
+      compressor.threshold.setValueAtTime(-10, ctx.currentTime);
+      compressor.knee.setValueAtTime(14, ctx.currentTime);
+      compressor.ratio.setValueAtTime(5, ctx.currentTime);
+      compressor.attack.setValueAtTime(0.002, ctx.currentTime);
+      compressor.release.setValueAtTime(0.11, ctx.currentTime);
+
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.72;
+
+      masterGain.gain.setValueAtTime(this.computeGain(), ctx.currentTime);
+      masterGain.connect(compressor);
+      compressor.connect(analyser);
+      analyser.connect(ctx.destination);
+
+      this.ctx = ctx;
+      this.masterGain = masterGain;
+      this.analyser = analyser;
+      this.noiseBuffer = createWhiteNoiseBuffer(ctx);
     }
 
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
+    if (this.ctx.state === 'suspended') {
+      void this.ctx.resume();
+    }
 
-    const gain = ctx.createGain();
-    const now = ctx.currentTime;
-    gain.gain.setValueAtTime(volume, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-
-    src.connect(gain);
-    gain.connect(ctx.destination);
-    src.start(now);
-    src.stop(now + duration + 0.01);
+    const rigReady = Boolean(this.masterGain && this.noiseBuffer);
+    if (!rigReady || !this.masterGain || !this.noiseBuffer) return null;
+    this.syncMasterGain();
+    return {
+      ctx: this.ctx,
+      output: this.masterGain,
+      era,
+      noiseBuffer: this.noiseBuffer,
+    };
   }
 }
 

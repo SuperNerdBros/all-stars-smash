@@ -176,6 +176,10 @@ export class EngineWorkerBridge {
     this.post({ type: 'SET_PAUSED', paused });
   }
 
+  public setTargetLock(targetSlot: number | null): void {
+    this.post({ type: 'SET_TARGET_LOCK', targetSlot });
+  }
+
   public hotReloadFighter(fighter: FighterBlueprint): void {
     this.post({ type: 'HOT_RELOAD_FIGHTER', fighter });
   }

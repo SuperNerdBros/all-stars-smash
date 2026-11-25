@@ -1,10 +1,17 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import type { StageManifest } from '../../types/stage';
-import { createCameraRig, projectPoint, VIRTUAL_HEIGHT, VIRTUAL_WIDTH, type CameraRig } from '../../engine/camera';
-import { bakeStageSlices, type BakedStageCache } from '../../engine/stageBaker';
-import { drawAmbientStageVfx, drawStageBackdrop } from '../../engine/ambientVfx';
+import type { StageManifest, StagePattern } from '../../types/stage';
+import { createCameraRig, type CameraRig } from '../../engine/camera';
+import { STAGE_TEXTURES } from '../../engine/backdropLoader';
+import {
+  computeHdViewport,
+  drawHdAmbientVfx,
+  drawHdBackdrop,
+  drawHdPlatformVolume,
+  projectToScreen,
+  type HdViewport,
+} from '../../engine/hdStagePainter';
 import { computeVolumeState } from '../../engine/platformMotion';
 
 export interface StagePreviewCanvasProps {
@@ -12,58 +19,51 @@ export interface StagePreviewCanvasProps {
   className?: string;
 }
 
-function drawAnimatedStagePreview(
+const PREVIEW_W = 768;
+const PREVIEW_H = 432;
+
+const textureImgCache = new Map<StagePattern, HTMLImageElement>();
+
+function loadCachedTexture(pattern: StagePattern): HTMLImageElement | null {
+  const existing = textureImgCache.get(pattern);
+  if (existing) {
+    return existing.complete && existing.naturalWidth > 0 ? existing : null;
+  }
+  if (typeof Image === 'undefined') return null;
+  const img = new Image();
+  img.referrerPolicy = 'no-referrer';
+  img.src = STAGE_TEXTURES[pattern];
+  textureImgCache.set(pattern, img);
+  return null;
+}
+
+function drawAnimatedHdPreview(
   ctx: CanvasRenderingContext2D,
+  vp: HdViewport,
   stage: StageManifest,
-  cache: BakedStageCache,
   cam: CameraRig,
   tick: number,
   bgImg: HTMLImageElement | null,
 ): void {
-  drawStageBackdrop(ctx, stage, cam, tick, bgImg);
-  drawAmbientStageVfx(ctx, stage.vfx, tick);
+  drawHdBackdrop(ctx, vp, stage, cam, tick, bgImg);
+  drawHdAmbientVfx(ctx, vp, stage.vfx, tick);
 
-  const yawRad = (cam.yawDeg * Math.PI) / 180;
-  const pitchRad = (cam.pitchDeg * Math.PI) / 180;
-  const cosY = Math.cos(yawRad);
-  const sinY = Math.sin(yawRad);
-  const sinP = Math.sin(pitchRad);
-
-  const drawList: Array<{ depth: number; draw: () => void }> = [];
-
-  for (const bakedVol of cache.volumes) {
-    const vol = bakedVol.volume;
+  const items = stage.volumes.map((vol) => {
     const pose = computeVolumeState(vol, tick);
-    const count = bakedVol.sliceBitmaps.length;
+    const center = projectToScreen(cam, vp, pose.x, pose.topY + vol.height * 0.35, vol.z);
+    return { vol, pose, depth: center.depth, priority: vol.decorative ? 0 : 1 };
+  });
 
-    for (let i = 0; i < count; i++) {
-      const t = count > 1 ? i / (count - 1) : 1;
-      const sliceY = pose.topY + vol.height * (1 - t);
-      const center = projectPoint(cam, pose.x, sliceY, vol.z);
-      const surf = bakedVol.sliceBitmaps[i];
-      const scale = center.scale;
-
-      drawList.push({
-        depth: center.depth + i * 0.02,
-        draw: () => {
-          ctx.save();
-          if (pose.alpha < 1) ctx.globalAlpha = pose.alpha;
-          ctx.translate(Math.round(center.sx), Math.round(center.sy));
-          ctx.transform(cosY * scale, -sinY * sinP * scale, sinY * scale, cosY * sinP * scale, 0, 0);
-          ctx.drawImage(surf as CanvasImageSource, -surf.width * 0.5, -surf.height * 0.5);
-          ctx.restore();
-        },
-      });
-    }
+  items.sort((a, b) => a.depth - b.depth || a.priority - b.priority);
+  for (const item of items) {
+    const tex = loadCachedTexture(item.vol.pattern);
+    drawHdPlatformVolume(ctx, item.vol, item.pose, cam, vp, tex, tick);
   }
-
-  drawList.sort((a, b) => a.depth - b.depth);
-  for (const item of drawList) item.draw();
 }
 
 /**
- * Renders a live animated 2.5D isometric preview of any StageManifest, showing
- * the rendered pixel-art backdrop, ambient VFX, moving platforms, and phase blocks.
+ * Renders a live animated full-HD 2.5D isometric preview of any StageManifest,
+ * matching the exact painted platform textures and native-HD backdrop used in-match.
  */
 export function StagePreviewCanvas(props: StagePreviewCanvasProps): React.ReactElement {
   const { stage, className = '' } = props;
@@ -72,17 +72,20 @@ export function StagePreviewCanvas(props: StagePreviewCanvasProps): React.ReactE
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.width = VIRTUAL_WIDTH;
-    canvas.height = VIRTUAL_HEIGHT;
+    canvas.width = PREVIEW_W;
+    canvas.height = PREVIEW_H;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.imageSmoothingEnabled = false;
 
+    const vp = computeHdViewport(PREVIEW_W, PREVIEW_H);
     const cam = createCameraRig('ISOMETRIC');
     cam.zoom = 0.74;
     cam.focalY = 14;
 
-    const cache = bakeStageSlices(stage);
+    for (const pattern of Object.keys(STAGE_TEXTURES) as StagePattern[]) {
+      loadCachedTexture(pattern);
+    }
+
     let loadedImg: HTMLImageElement | null = null;
     let isActive = true;
     let tick = 0;
@@ -98,8 +101,8 @@ export function StagePreviewCanvas(props: StagePreviewCanvasProps): React.ReactE
     const loop = () => {
       if (!isActive) return;
       tick++;
-      cam.yawDeg = 26 + Math.sin(tick * 0.012) * 5;
-      drawAnimatedStagePreview(ctx, stage, cache, cam, tick, loadedImg);
+      cam.yawDeg = 24 + Math.sin(tick * 0.012) * 5;
+      drawAnimatedHdPreview(ctx, vp, stage, cam, tick, loadedImg);
       rafId = window.requestAnimationFrame(loop);
     };
 
@@ -113,6 +116,6 @@ export function StagePreviewCanvas(props: StagePreviewCanvasProps): React.ReactE
 
   return React.createElement('canvas', {
     ref: canvasRef,
-    className: `pixelated w-full aspect-video block rounded-sm bg-[#070B16] ${className}`,
+    className: `w-full aspect-video block rounded-sm bg-[#070B16] ${className}`,
   });
 }

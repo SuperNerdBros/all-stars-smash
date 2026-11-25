@@ -334,7 +334,26 @@ export function getActiveHitboxes(f: FighterEntity): ActiveHitboxWorld[] {
   return specs.map((spec) => {
     const cx = f.x + spec.offsetX * f.facing;
     const cy = f.y + spec.offsetY;
-    return { x: cx - spec.width * 0.5, y: cy - spec.height * 0.5, w: spec.width, h: spec.height, move, spec };
+    let x = cx - spec.width * 0.5;
+    let w = spec.width;
+
+    // Eliminate point-blank dead zones on forward melee strikes and grabs.
+    if (spec.offsetX > 0) {
+      if (f.facing === 1) {
+        const innerAnchor = f.x + 1;
+        if (x > innerAnchor) {
+          w += x - innerAnchor;
+          x = innerAnchor;
+        }
+      } else {
+        const innerAnchor = f.x - 1;
+        if (x + w < innerAnchor) {
+          w = innerAnchor - x;
+        }
+      }
+    }
+
+    return { x, y: cy - spec.height * 0.5, w, h: spec.height, move, spec };
   });
 }
 

@@ -10,6 +10,7 @@ import {
   saveCustomFighterToStorage,
 } from '../roster/registry';
 import { getStageById, STAGE_MANIFESTS } from '../stages/manifests';
+import { chiptuneAudio } from '../io/chiptuneAudio';
 
 export type ScreenState =
   | 'DISCLAIMER'
@@ -17,6 +18,7 @@ export type ScreenState =
   | 'ONLINE'
   | 'CHARACTER_SELECT'
   | 'STAGE_SELECT'
+  | 'SOUND_TEST'
   | 'VS_INTRO'
   | 'PLAYING'
   | 'VICTORY';
@@ -163,16 +165,23 @@ export function useArcadeShellState() {
       setState((prev) => ({ ...prev, forgeFighterId })),
     setImporterOpen: (importerOpen: boolean) => setState((prev) => ({ ...prev, importerOpen })),
     toggleMusic: () => setState((prev) => ({ ...prev, musicOpen: !prev.musicOpen })),
-    setEra: (graphicsEra: GraphicsEra) =>
-      setState((prev) => ({ ...prev, matchConfig: { ...prev.matchConfig, graphicsEra } })),
+    setEra: (graphicsEra: GraphicsEra) => {
+      chiptuneAudio.setEraProfile(graphicsEra);
+      setState((prev) => ({ ...prev, matchConfig: { ...prev.matchConfig, graphicsEra } }));
+    },
     toggleEra: () =>
-      setState((prev) => ({
-        ...prev,
-        matchConfig: {
-          ...prev.matchConfig,
-          graphicsEra: prev.matchConfig.graphicsEra === 'NES' ? 'SNES_SEGA' : 'NES',
-        },
-      })),
+      setState((prev) => {
+        const nextEra: GraphicsEra = prev.matchConfig.graphicsEra === 'NES' ? 'SNES_SEGA' : 'NES';
+        chiptuneAudio.setEraProfile(nextEra);
+        chiptuneAudio.playEraSwap();
+        return {
+          ...prev,
+          matchConfig: {
+            ...prev.matchConfig,
+            graphicsEra: nextEra,
+          },
+        };
+      }),
     saveFighter: (updated: FighterBlueprint) =>
       setState((prev) => ({ ...prev, roster: saveCustomFighterToStorage(prev.roster, updated) })),
     registerNewFighter: (created: FighterBlueprint) =>

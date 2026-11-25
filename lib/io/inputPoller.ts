@@ -34,10 +34,15 @@ export class MainThreadInputPoller {
   private rafId: number | null = null;
   private lastP1 = -1;
   private lastP2 = -1;
+  private virtualP1Mask = 0;
   private attached = false;
 
   constructor(handlers: InputPollerHandlers) {
     this.handlers = handlers;
+  }
+
+  public setVirtualP1Mask(mask: number): void {
+    this.virtualP1Mask = mask;
   }
 
   public start(): void {
@@ -145,9 +150,10 @@ export class MainThreadInputPoller {
     if (k.has('KeyK') || k.has('KeyG')) m |= INPUT_SMASH;
     if (k.has('KeyL') || k.has('KeyR')) m |= INPUT_SPECIAL;
     if (k.has('ShiftLeft') || k.has('KeyU')) m |= INPUT_SHIELD;
-    if (k.has('KeyI')) m |= INPUT_GRAB;
+    if (k.has('KeyI') || k.has('KeyO')) m |= INPUT_GRAB;
 
     m |= this.sampleGamepadMask(0);
+    m |= this.virtualP1Mask;
     return m;
   }
 

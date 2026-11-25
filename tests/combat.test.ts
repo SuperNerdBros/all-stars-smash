@@ -22,6 +22,7 @@ import {
   INPUT_GRAB,
   INPUT_JUMP,
   INPUT_RIGHT,
+  INPUT_SMASH,
   INPUT_UP,
 } from '../lib/types/protocol';
 
@@ -151,8 +152,8 @@ test('every built-in fighter derives a valid 23-slot moveset', () => {
   }
 });
 
-test('built-in roster has the 50 legacy fighters plus the Www cast, all valid', () => {
-  assert.equal(BUILTIN_FIGHTERS.length, 50 + WWW_FIGHTERS.length);
+test('built-in roster has the 54 legacy fighters plus the Www cast, all valid', () => {
+  assert.equal(BUILTIN_FIGHTERS.length, 54 + WWW_FIGHTERS.length);
   const ids = new Set<string>();
   for (const bp of BUILTIN_FIGHTERS) {
     assert.equal(ids.has(bp.id), false, `duplicate fighter id: ${bp.id}`);
@@ -260,6 +261,48 @@ test('grab → up throw launches and stales', () => {
   assert.ok(b.damagePct > 0);
   assert.ok(b.y < a.y - 10, 'thrown upward');
   assert.equal(a.staleQueue[0], 'uthrow');
+});
+
+test('overlapping fighters are pushed apart by body pushboxes', () => {
+  const sim = makeSim();
+  settle(sim);
+  const [a, b] = sim.fighters;
+  a.x = 0;
+  b.x = 0;
+  for (let i = 0; i < 12; i++) stepSimulation(sim, [0, 0]);
+  assert.ok(Math.abs(b.x - a.x) >= 13, `expected separation >= 13, got ${Math.abs(b.x - a.x)}`);
+});
+
+test('point-blank jab connects cleanly when fighters are touching pushboxes', () => {
+  const sim = makeSim();
+  settle(sim);
+  const [a, b] = sim.fighters;
+  a.x = 0;
+  b.x = 14;
+  a.facing = 1;
+  stepSimulation(sim, [INPUT_ATTACK, 0]);
+  for (let i = 0; i < 16; i++) stepSimulation(sim, [0, 0]);
+  assert.ok(b.damagePct > 0, 'point-blank jab should connect cleanly');
+});
+
+test('walking into grab holds cleanly and Smash button throws forward', () => {
+  const sim = makeSim();
+  settle(sim);
+  const [a, b] = sim.fighters;
+  a.x = 0;
+  b.x = 16;
+  a.facing = 1;
+  // Walk right while grabbing: should hold without immediately throwing.
+  stepSimulation(sim, [INPUT_RIGHT | INPUT_GRAB, 0]);
+  for (let i = 0; i < 10 && a.holdingSlot === null; i++) stepSimulation(sim, [INPUT_RIGHT, 0]);
+  assert.equal(a.holdingSlot, 1, 'grab connected while walking forward');
+  for (let i = 0; i < 8; i++) stepSimulation(sim, [INPUT_RIGHT, 0]);
+  assert.equal(a.holdingSlot, 1, 'still holding while pre-grab direction remains held');
+  // Press Smash while holding -> forward throw!
+  stepSimulation(sim, [INPUT_SMASH, 0]);
+  for (let i = 0; i < 30; i++) stepSimulation(sim, [0, 0]);
+  assert.equal(a.holdingSlot, null, 'released opponent via throw');
+  assert.ok(b.damagePct > 0 && b.x > a.x + 20, 'opponent launched forward');
 });
 
 test('8-fighter free-for-all runs to a single winner', () => {

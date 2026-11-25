@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Cpu,
   Gamepad2,
@@ -10,13 +10,13 @@ import {
   Sliders,
   Sparkles,
   Volume2,
-  VolumeX,
   X,
 } from 'lucide-react';
 import type { GraphicsEra } from '../../types/fighter';
 import type { CpuDifficulty, MatchConfig } from '../../types/protocol';
 import { chiptuneAudio } from '../../io/chiptuneAudio';
 import { BRAND } from '../../branding';
+import { AudioMixerControls } from './audioMixerControls';
 
 export interface TitleSettingsOverlayProps {
   mode: 'settings' | 'controls';
@@ -27,6 +27,7 @@ export interface TitleSettingsOverlayProps {
   onSetEra: (era: GraphicsEra) => void;
   onToggleMusic: () => void;
   onShuffleStage: () => void;
+  onOpenSoundTest?: () => void;
   onClose: () => void;
 }
 
@@ -36,11 +37,7 @@ const CPU_LEVELS: ReadonlyArray<{ id: CpuDifficulty; label: string }> = [
   { id: 'hard', label: 'Lv. 9' },
 ];
 
-function renderSettingsBody(
-  props: TitleSettingsOverlayProps,
-  sfxMuted: boolean,
-  onToggleSfx: () => void,
-): React.ReactElement {
+function renderSettingsBody(props: TitleSettingsOverlayProps): React.ReactElement {
   const { matchConfig, stageName, musicOpen, onUpdateMatchConfig, onSetEra, onToggleMusic, onShuffleStage } = props;
   const p2 = matchConfig.players[1];
 
@@ -66,7 +63,7 @@ function renderSettingsBody(
           {
             type: 'button',
             onClick: () => {
-              chiptuneAudio.playMenuTick();
+              chiptuneAudio.playEraSwap();
               onSetEra('NES');
             },
             className: [
@@ -82,7 +79,7 @@ function renderSettingsBody(
           {
             type: 'button',
             onClick: () => {
-              chiptuneAudio.playMenuTick();
+              chiptuneAudio.playEraSwap();
               onSetEra('SNES_SEGA');
             },
             className: [
@@ -187,21 +184,23 @@ function renderSettingsBody(
       ),
     ),
 
+    // Audio Balance Mixer (BGM & SFX sliders)
+    React.createElement(
+      'div',
+      { className: 'flex flex-col gap-2 border-b border-white/10 pb-3' },
+      React.createElement(
+        'div',
+        null,
+        React.createElement('div', { className: 'font-display font-black uppercase text-sm text-white' }, 'Audio Balance'),
+        React.createElement('div', { className: 'text-[11px] text-white/65' }, 'Adjust Music (BGM) and Sound FX (SFX) independently'),
+      ),
+      React.createElement(AudioMixerControls, { variant: 'panel' }),
+    ),
+
     // Audio & Live Attract Stage Controls
     React.createElement(
       'div',
       { className: 'flex flex-wrap items-center justify-between gap-2 pt-1' },
-      React.createElement(
-        'button',
-        {
-          type: 'button',
-          onClick: onToggleSfx,
-          className:
-            'inline-flex items-center gap-2 px-3.5 py-2 bg-[#1E293B] hover:bg-[#334155] border-2 border-black text-xs font-black uppercase text-white cursor-pointer whitespace-nowrap',
-        },
-        sfxMuted ? React.createElement(VolumeX, { className: 'w-4 h-4 text-[#EF4444]' }) : React.createElement(Volume2, { className: 'w-4 h-4 text-[#22C55E]' }),
-        sfxMuted ? 'SFX: Muted' : 'SFX: Active',
-      ),
       React.createElement(
         'button',
         {
@@ -215,6 +214,22 @@ function renderSettingsBody(
         React.createElement(Music, { className: 'w-4 h-4' }),
         musicOpen ? 'Hide OST Deck' : 'Stage OST Deck',
       ),
+      props.onOpenSoundTest
+        ? React.createElement(
+            'button',
+            {
+              type: 'button',
+              onClick: () => {
+                chiptuneAudio.playMenuConfirm();
+                props.onOpenSoundTest?.();
+              },
+              className:
+                'inline-flex items-center gap-2 px-3.5 py-2 bg-[#047857] hover:bg-[#059669] border-2 border-black text-xs font-black uppercase text-white cursor-pointer whitespace-nowrap',
+            },
+            React.createElement(Volume2, { className: 'w-4 h-4' }),
+            'Sound Test',
+          )
+        : null,
       React.createElement(
         'button',
         {
@@ -237,7 +252,8 @@ function renderControlsBody(): React.ReactElement {
   const rows: ReadonlyArray<{ title: string; keys: string }> = [
     { title: 'P1 Movement & Jumps', keys: 'W A S D · Space (Triple Jump + Wall Jump & Cling)' },
     { title: 'P1 Attacks & Specials', keys: 'J Jab · K Smash · L Special · W + L Up-Recovery · Shift Shield' },
-    { title: 'P2 Local Keyboard', keys: 'Arrow Keys · Num1 / , Attack · Num2 / . Smash · Num3 / / Special' },
+    { title: 'Grab, Hold & Throw', keys: 'I / O / Shift+J Grab · While Holding: W/A/S/D or K/I Throw · J Pummel' },
+    { title: 'P2 Local Keyboard', keys: 'Arrows · Num1/, Atk · Num2/. Smash · Num3// Spec · Num4/; Grab' },
     { title: 'Live 2.5D Camera & Era', keys: '1 Side · 2 Isometric · 3 Top 62° · 4 3rd-Person · E NES/16-Bit · H Hitboxes' },
   ];
 
@@ -257,13 +273,6 @@ function renderControlsBody(): React.ReactElement {
 
 export function TitleSettingsOverlay(props: TitleSettingsOverlayProps): React.ReactElement {
   const { mode, onClose } = props;
-  const [sfxMuted, setSfxMuted] = useState<boolean>(() => chiptuneAudio.isMuted());
-
-  const handleToggleSfx = () => {
-    const next = chiptuneAudio.toggleMute();
-    setSfxMuted(next);
-    if (!next) chiptuneAudio.playMenuTick();
-  };
 
   return React.createElement(
     'div',
@@ -307,7 +316,7 @@ export function TitleSettingsOverlay(props: TitleSettingsOverlayProps): React.Re
       React.createElement(
         'div',
         { className: 'p-5' },
-        mode === 'settings' ? renderSettingsBody(props, sfxMuted, handleToggleSfx) : renderControlsBody(),
+        mode === 'settings' ? renderSettingsBody(props) : renderControlsBody(),
       ),
       // Project link
       React.createElement(

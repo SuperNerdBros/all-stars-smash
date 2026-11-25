@@ -14,10 +14,17 @@ import {
   INPUT_SMASH,
   INPUT_SPECIAL,
   INPUT_UP,
+  type SfxEvent,
 } from '../types/protocol';
 import { isAerialSlot, isThrowSlot, type MoveElement, type MoveSlot, type ThrowSlot } from '../types/moves';
 import type { MoveFrameData } from '../types/fighter';
-import { consumeBufferedAction, consumeCStick, peekBuffered, recentDirectionMask, updateInputBuffer } from './inputBuffer';
+import {
+  consumeBufferedAction,
+  consumeCStick,
+  DIRECTION_BITS,
+  peekBuffered,
+  updateInputBuffer,
+} from './inputBuffer';
 import { computeCpuInputMask } from './aiController';
 import { computeVolumeState } from './platformMotion';
 import {
@@ -51,6 +58,7 @@ import {
   staleMultiplier,
 } from './combatFormulas';
 import { resolveMove, type ButtonPress } from './moveResolver';
+import { resolveFighterPushboxes } from './pushbox';
 import { integrateFighterStagePhysics } from './stageCollision';
 
 export {
@@ -70,6 +78,8 @@ export {
 
 const DIRECTIONS = INPUT_LEFT | INPUT_RIGHT | INPUT_UP | INPUT_DOWN;
 const GRAB_HOLD_OFFSET = 12;
+const GRAB_HOLD_LIFT = 5;
+const THROW_BUFFER_WINDOW = 5;
 
 // ── Hit resolution ──────────────────────────────────────────────
 
@@ -132,6 +142,23 @@ function freezeFor(sim: SimulationState, frames: number, victim?: FighterEntity)
   if (victim && !sim.hitstopVictims.includes(victim.slot)) sim.hitstopVictims.push(victim.slot);
 }
 
+function resolveImpactSfx(hit: HitParams, damage: number, kb: number): SfxEvent {
+  if (hit.element === 'electric') return 'hitElectric';
+  if (hit.element === 'fire') return 'hitFire';
+  if (hit.element === 'ice') return 'hitIce';
+  if (damage >= 12 || kb >= 60) return 'hitHeavy';
+  if (damage >= 7 || kb >= 38) return 'hitMedium';
+  return 'hitLight';
+}
+
+function resolveStartMoveSfx(slot: MoveSlot): SfxEvent | null {
+  if (slot === 'upSpecial') return 'upSpecial';
+  if (slot === 'neutralSpecial' || slot === 'sideSpecial' || slot === 'downSpecial') return 'specialCast';
+  if (slot === 'fsmash' || slot === 'usmash' || slot === 'dsmash') return 'whiffHeavy';
+  if (slot === 'grab' || slot === 'pummel' || isThrowSlot(slot)) return null;
+  return 'whiffLight';
+}
+
 /** Returns true if the hit connected (including on shield). */
 function applyHit(sim: SimulationState, attacker: FighterEntity, victim: FighterEntity, hit: HitParams): boolean {
   if (victim.invulnTimer > 0 || victim.respawnTimer > 0 || isIntangible(victim)) return false;
@@ -145,12 +172,14 @@ function applyHit(sim: SimulationState, attacker: FighterEntity, victim: Fighter
     victim.shieldHp = Math.max(0, victim.shieldHp - damage * 2.4);
     victim.vx += hit.knockDir * 2.2;
     freezeFor(sim, computeHitstop({ damage, hitlagMult: hit.hitlagMult, electric, shielded: true }));
-    sim.pendingSfx.push('shield');
     spawnParticles(sim, victim.x, victim.y - 11, 5, 'spark', '#38BDF8', 2.0);
     if (victim.shieldHp <= 0) {
       victim.shielding = false;
       victim.hitstun = 55;
       victim.shieldStunTimer = 90;
+      sim.pendingSfx.push('shieldBreak');
+    } else {
+      sim.pendingSfx.push('shield');
     }
     return true;
   }
@@ -188,7 +217,7 @@ function applyHit(sim: SimulationState, attacker: FighterEntity, victim: Fighter
   if (armor !== undefined && kb < armor) {
     victim.hitFlashTimer = Math.max(4, hitstop);
     freezeFor(sim, hitstop);
-    sim.pendingSfx.push('hitLight');
+    sim.pendingSfx.push('armorClang');
     return true;
   }
 
@@ -202,7 +231,7 @@ function applyHit(sim: SimulationState, attacker: FighterEntity, victim: Fighter
   freezeFor(sim, hitstop, victim);
 
   const isHeavy = damage >= 12 || kb >= 60;
-  sim.pendingSfx.push(isHeavy ? 'hitHeavy' : 'hitLight');
+  sim.pendingSfx.push(resolveImpactSfx(hit, damage, kb));
   sim.pendingShake = Math.max(sim.pendingShake, isHeavy ? 6.5 : 2.6);
   spawnParticles(sim, victim.x, victim.y - 11, isHeavy ? 10 : 6, 'spark', isHeavy ? '#FDE047' : '#F8FAFC', isHeavy ? 4.2 : 2.6);
   return true;
@@ -269,8 +298,9 @@ function startMove(sim: SimulationState, f: FighterEntity, slot: MoveSlot, trigg
   f.animTick = 0;
   if (slot === 'upSpecial') {
     f.upSpecialUsed = true;
-    sim.pendingSfx.push('doubleJump');
   }
+  const startSfx = resolveStartMoveSfx(slot);
+  if (startSfx) sim.pendingSfx.push(startSfx);
 }
 
 function spawnMoveProjectile(sim: SimulationState, f: FighterEntity, slot: MoveSlot, move: MoveFrameData): void {
@@ -321,6 +351,7 @@ function stepActiveMove(sim: SimulationState, f: FighterEntity, rawMask: number)
     f.chargeFrames++;
     f.moveChargeMult = chargeMultiplier(f.chargeFrames);
     if (f.chargeFrames % 8 === 0) spawnParticles(sim, f.x, f.y - 12, 2, 'spark', '#FDE047', 1.2);
+    if (f.chargeFrames % 12 === 1) sim.pendingSfx.push('smashCharge');
     f.hitFlashTimer = f.chargeFrames % 10 < 5 ? 2 : 0;
     if (f.grounded) f.vx *= 0.8;
     return true;
@@ -344,6 +375,7 @@ function stepActiveMove(sim: SimulationState, f: FighterEntity, rawMask: number)
         const dir = THROW_DIR[slot](f.facing);
         releaseGrab(sim, f, false);
         victim.invulnTimer = 0;
+        sim.pendingSfx.push('throwLaunch');
         applyHit(sim, f, victim, { ...hitParamsFrom(slot, move, null, dir), ignoreShield: true });
         if (slot === 'bthrow') f.facing = dir;
       }
@@ -482,14 +514,62 @@ function tryJumpSquatCancel(sim: SimulationState, f: FighterEntity, rawMask: num
 
 // ── Grabs ───────────────────────────────────────────────────────
 
+function clearPreGrabBuffers(f: FighterEntity): void {
+  f.input.dirPressAge = [255, 255, 255, 255];
+  f.input.cstickBuffer = 0;
+  f.input.cstickBufferMask = 0;
+  f.input.attackBuffer = 0;
+  f.input.smashBuffer = 0;
+  f.input.grabBuffer = 0;
+}
+
+function directionMaskToThrow(dirMask: number, facing: 1 | -1): ThrowSlot | null {
+  if (dirMask & INPUT_UP) return 'uthrow';
+  if (dirMask & INPUT_DOWN) return 'dthrow';
+  const forwardBit = facing === 1 ? INPUT_RIGHT : INPUT_LEFT;
+  const backBit = facing === 1 ? INPUT_LEFT : INPUT_RIGHT;
+  if (dirMask & forwardBit) return 'fthrow';
+  if (dirMask & backBit) return 'bthrow';
+  return null;
+}
+
+function readFreshDirectionMask(f: FighterEntity): number {
+  let mask = 0;
+  for (let i = 0; i < 4; i++) {
+    if (f.input.dirPressAge[i] < THROW_BUFFER_WINDOW) {
+      mask |= DIRECTION_BITS[i];
+    }
+  }
+  return mask;
+}
+
+function resolveHoldAction(f: FighterEntity, rawMask: number): ThrowSlot | 'pummel' | null {
+  const c = consumeCStick(f.input);
+  if (c) return directionMaskToThrow(cstickToMask(c), f.facing) ?? 'fthrow';
+
+  const freshThrow = directionMaskToThrow(readFreshDirectionMask(f), f.facing);
+  if (freshThrow) return freshThrow;
+
+  if (consumeBufferedAction(f.input, INPUT_SMASH) || consumeBufferedAction(f.input, INPUT_GRAB)) {
+    return directionMaskToThrow(rawMask & DIRECTIONS, f.facing) ?? 'fthrow';
+  }
+  if (consumeBufferedAction(f.input, INPUT_ATTACK)) {
+    return 'pummel';
+  }
+  return null;
+}
+
 function beginGrab(sim: SimulationState, holder: FighterEntity, victim: FighterEntity): void {
   holder.moveKey = null;
   holder.moveTick = 0;
   holder.holdingSlot = victim.slot;
-  holder.grabTimer = Math.min(240, Math.round(60 + victim.damagePct * 0.9));
+  holder.grabTimer = Math.min(240, Math.round(75 + victim.damagePct * 0.9));
   holder.vx = 0;
+  clearPreGrabBuffers(holder);
+
   victim.grabbedBySlot = holder.slot;
   victim.lastHitBy = holder.slot;
+  victim.facing = holder.facing === 1 ? -1 : 1;
   victim.moveKey = null;
   victim.shielding = false;
   victim.hitstun = 0;
@@ -497,7 +577,8 @@ function beginGrab(sim: SimulationState, holder: FighterEntity, victim: FighterE
   victim.kbVx = 0;
   victim.kbVy = 0;
   releaseGrab(sim, victim, false);
-  sim.pendingSfx.push('hitLight');
+  sim.pendingSfx.push('grab');
+  spawnParticles(sim, holder.x + 8 * holder.facing, holder.y - 12, 6, 'spark', '#FACC15', 2.0);
   freezeFor(sim, 4);
 }
 
@@ -510,9 +591,10 @@ function stepHolding(sim: SimulationState, f: FighterEntity, rawMask: number): v
   if (f.holdingSlot === null) return; // thrown this frame
 
   victim.x = f.x + GRAB_HOLD_OFFSET * f.facing;
-  victim.y = f.y;
+  victim.y = f.y - GRAB_HOLD_LIFT;
   victim.vx = 0;
   victim.vy = 0;
+  victim.grounded = false;
   if (inThrowOrPummel) return;
 
   f.grabTimer--;
@@ -521,18 +603,9 @@ function stepHolding(sim: SimulationState, f: FighterEntity, rawMask: number): v
     return;
   }
 
-  const c = consumeCStick(f.input);
-  const dirMask = c ? cstickToMask(c) : recentDirectionMask(f.input);
-  let throwSlot: ThrowSlot | null = null;
-  if (dirMask & INPUT_UP) throwSlot = 'uthrow';
-  else if (dirMask & INPUT_DOWN) throwSlot = 'dthrow';
-  else if (dirMask & (f.facing === 1 ? INPUT_RIGHT : INPUT_LEFT)) throwSlot = 'fthrow';
-  else if (dirMask & (f.facing === 1 ? INPUT_LEFT : INPUT_RIGHT)) throwSlot = 'bthrow';
-
-  if (throwSlot) {
-    startMove(sim, f, throwSlot, 0);
-  } else if (consumeBufferedAction(f.input, INPUT_ATTACK) || consumeBufferedAction(f.input, INPUT_GRAB)) {
-    startMove(sim, f, 'pummel', 0);
+  const nextAction = resolveHoldAction(f, rawMask);
+  if (nextAction) {
+    startMove(sim, f, nextAction, 0);
   }
 }
 
@@ -558,7 +631,10 @@ function stepFighterControl(sim: SimulationState, f: FighterEntity, rawMask: num
     f.respawnTimer--;
     f.vx = 0;
     f.vy = 0;
-    if (f.respawnTimer === 0) f.invulnTimer = 85;
+    if (f.respawnTimer === 0) {
+      f.invulnTimer = 85;
+      sim.pendingSfx.push('respawn');
+    }
     return;
   }
 
@@ -886,6 +962,7 @@ export function stepSimulation(sim: SimulationState, masks: readonly number[]): 
   const resolved = sim.fighters.map((f) => computeMask(sim, f, masks[f.slot] ?? 0));
   for (const f of sim.fighters) stepFighterControl(sim, f, resolved[f.slot]);
   for (const f of sim.fighters) integrateFighterStagePhysics(sim, f);
+  resolveFighterPushboxes(sim);
   for (const f of sim.fighters) f.animTick++;
 
   resolveMeleeHits(sim);

@@ -42,12 +42,14 @@ function handleWallFaceContact(
 
   if (!canLatch) return;
 
+  const isFreshLatch = f.wallClingGraceTimer === 0;
   f.x = side === 1 ? faceX - HURTBOX_HALF_W : faceX + HURTBOX_HALF_W;
   f.vx = 0;
   f.wallClingDir = side;
   f.lastWallClingDir = side;
   f.wallClingGraceTimer = 6;
   f.facing = side === 1 ? -1 : 1;
+  if (isFreshLatch) sim.pendingSfx.push('wallCling');
 
   const shouldEmitDust = sim.matchTimeTicks % 7 === 0;
   if (shouldEmitDust) {
@@ -195,7 +197,7 @@ export function integrateFighterStagePhysics(
         f.upSpecialUsed = false;
         f.squashX = 0.68;
         f.squashY = 1.38;
-        sim.pendingSfx.push('tripleJump');
+        sim.pendingSfx.push('springBounce');
         spawnParticles(sim, f.x, top, 9, 'spark', '#FACC15', 3.0);
         continue;
       }
@@ -205,6 +207,7 @@ export function integrateFighterStagePhysics(
         f.y = top - 1;
         f.kbVy = -kbVyBefore * 0.8;
         f.vy = 0;
+        sim.pendingSfx.push('meteorBounce');
         spawnParticles(sim, f.x, top, 6, 'dust', '#CBD5E1', 2.2);
         continue;
       }
@@ -232,6 +235,7 @@ export function integrateFighterStagePhysics(
       if (!wasGrounded) {
         f.squashX = 1.2;
         f.squashY = 0.82;
+        if (totalVy > 2.0) sim.pendingSfx.push('land');
         spawnParticles(sim, f.x, f.y, 4, 'dust', '#CBD5E1', 1.2);
       }
       continue;

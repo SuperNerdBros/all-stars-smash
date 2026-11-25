@@ -8,11 +8,13 @@ import {
   Music,
   Pause,
   Play,
+  Sliders,
   Volume2,
   VolumeX,
 } from 'lucide-react';
 import type { StageManifest } from '../../types/stage';
 import { useSoundCloudPlayer } from '../../hooks/useSoundCloudPlayer';
+import { AudioMixerControls } from './audioMixerControls';
 
 export interface SoundCloudMusicBarProps {
   stage: StageManifest;
@@ -22,9 +24,69 @@ export interface SoundCloudMusicBarProps {
   onToggleOpen: () => void;
 }
 
+interface CollapsedMusicBarProps {
+  ostTitle: string;
+  isPlaying: boolean;
+  isMuted: boolean;
+  volume: number;
+  onToggleMute: () => void;
+  onToggleOpen: () => void;
+}
+
+function CollapsedMusicBar(props: CollapsedMusicBarProps): React.ReactElement {
+  const { ostTitle, isPlaying, isMuted, volume, onToggleMute, onToggleOpen } = props;
+  const isAudible = isPlaying && !isMuted;
+  const muteLabel = isMuted ? 'Unmute Music' : 'Mute Music';
+  const iconClass = isAudible ? 'w-3.5 h-3.5 shrink-0 text-[#FACC15]' : 'w-3.5 h-3.5 shrink-0 text-[#94A3B8]';
+
+  return React.createElement(
+    'div',
+    {
+      className:
+        'pointer-events-auto inline-flex items-center rounded-sm bg-[#111827]/95 border-2 border-black text-white shadow-[0_6px_16px_rgba(0,0,0,0.5)] overflow-hidden',
+    },
+    React.createElement(
+      'button',
+      {
+        type: 'button',
+        onClick: onToggleMute,
+        title: muteLabel,
+        'aria-label': muteLabel,
+        className:
+          'px-2.5 py-1.5 hover:bg-[#1E293B] border-r border-white/15 cursor-pointer flex items-center justify-center',
+      },
+      isMuted
+        ? React.createElement(VolumeX, { className: 'w-3.5 h-3.5 text-[#FCA5A5]' })
+        : React.createElement(Volume2, { className: 'w-3.5 h-3.5 text-[#FACC15]' }),
+    ),
+    React.createElement(
+      'button',
+      {
+        type: 'button',
+        onClick: onToggleOpen,
+        title: 'Open Audio Mixer & Stage OST Controls',
+        className:
+          'inline-flex items-center gap-2 px-3 py-1.5 hover:bg-[#1E293B] cursor-pointer transition-colors',
+      },
+      React.createElement(Music, { className: iconClass }),
+      React.createElement(
+        'span',
+        { className: 'text-[11px] font-black uppercase tracking-wide max-w-[165px] truncate' },
+        ostTitle,
+      ),
+      React.createElement(
+        'span',
+        { className: 'font-mono text-[10px] font-bold tabular-nums text-[#FACC15]' },
+        isMuted ? '0%' : `${volume}%`,
+      ),
+      React.createElement(Sliders, { className: 'w-3 h-3 text-white/65 shrink-0' }),
+    ),
+  );
+}
+
 /**
- * Persistent stage-matched SoundCloud OST player that stays mounted across
- * Title Screen, Stage Select, and live Matches so audio never resets on launch.
+ * Persistent stage-matched SoundCloud OST & Audio Mixer bar mounted across
+ * menus, Sound Test, and live matches so BGM & SFX levels stay adjustable anytime.
  */
 export function SoundCloudMusicBar(
   props: SoundCloudMusicBarProps,
@@ -36,7 +98,14 @@ export function SoundCloudMusicBar(
     iframeRef,
     autoStart,
   );
-  const { isPlaying, isMuted, embedSrc } = state;
+  const { isPlaying, isMuted, volume, embedSrc } = state;
+  const drawerClass = isOpen
+    ? 'pointer-events-auto opacity-100 scale-100 max-h-[430px]'
+    : 'pointer-events-none opacity-0 scale-95 max-h-0 border-0';
+  const discClass = isPlaying && !isMuted
+    ? 'w-4 h-4 text-[#FACC15] shrink-0 animate-spin'
+    : 'w-4 h-4 text-[#FACC15] shrink-0';
+  const showCollapsedBar = !isOpen && !isInMatch;
 
   return React.createElement(
     'div',
@@ -48,12 +117,7 @@ export function SoundCloudMusicBar(
     React.createElement(
       'div',
       {
-        className: [
-          'w-[340px] sm:w-[390px] rounded-md border-2 border-black bg-[#0D1326] text-white shadow-[0_14px_32px_rgba(0,0,0,0.75)] overflow-hidden transition-all duration-200 origin-bottom-right',
-          isOpen
-            ? 'pointer-events-auto opacity-100 scale-100 max-h-[300px]'
-            : 'pointer-events-none opacity-0 scale-95 max-h-0 border-0',
-        ].join(' '),
+        className: `w-[340px] sm:w-[390px] rounded-md border-2 border-black bg-[#0D1326] text-white shadow-[0_14px_32px_rgba(0,0,0,0.75)] overflow-hidden transition-all duration-200 origin-bottom-right ${drawerClass}`,
       },
 
       React.createElement(
@@ -65,12 +129,7 @@ export function SoundCloudMusicBar(
         React.createElement(
           'div',
           { className: 'flex items-center gap-2 min-w-0' },
-          React.createElement(Disc3, {
-            className: [
-              'w-4 h-4 text-[#FACC15] shrink-0',
-              isPlaying ? 'animate-spin' : '',
-            ].join(' '),
-          }),
+          React.createElement(Disc3, { className: discClass }),
           React.createElement(
             'div',
             { className: 'min-w-0' },
@@ -106,7 +165,7 @@ export function SoundCloudMusicBar(
             {
               type: 'button',
               onClick: onToggleOpen,
-              title: 'Minimize OST Player',
+              title: 'Minimize Audio Mixer & OST Player',
               className:
                 'p-1 rounded bg-black/35 hover:bg-black/60 text-white transition-colors cursor-pointer',
             },
@@ -117,46 +176,31 @@ export function SoundCloudMusicBar(
 
       React.createElement(
         'div',
-        {
-          className:
-            'flex items-center justify-between gap-2 px-3 py-2 bg-[#141C34] border-b border-white/10',
-        },
-        React.createElement(
-          'button',
-          {
-            type: 'button',
-            onClick: togglePlay,
-            title: isPlaying ? 'Pause Stage OST' : 'Play Stage OST',
-            className:
-              'inline-flex items-center gap-1.5 px-3 py-1 rounded bg-[#FACC15] hover:bg-[#FDE047] text-black text-xs font-black uppercase tracking-wide cursor-pointer',
-          },
-          isPlaying
-            ? React.createElement(Pause, { className: 'w-3.5 h-3.5' })
-            : React.createElement(Play, { className: 'w-3.5 h-3.5' }),
-          isPlaying ? 'Pause OST' : 'Play Stage OST',
-        ),
+        { className: 'px-3 py-2.5 bg-[#11182C] border-b border-white/10 flex flex-col gap-2' },
         React.createElement(
           'div',
-          { className: 'flex items-center gap-2' },
-          React.createElement(
-            'span',
-            { className: 'text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]' },
-            'Stage Match',
-          ),
+          { className: 'flex items-center justify-between gap-2' },
           React.createElement(
             'button',
             {
               type: 'button',
-              onClick: toggleMute,
-              title: isMuted ? 'Unmute BGM' : 'Mute BGM',
+              onClick: togglePlay,
+              title: isPlaying ? 'Pause Stage OST' : 'Play Stage OST',
               className:
-                'p-1.5 rounded bg-black/40 hover:bg-black/70 text-white cursor-pointer',
+                'inline-flex items-center gap-1.5 px-3 py-1 rounded bg-[#FACC15] hover:bg-[#FDE047] text-black text-xs font-black uppercase tracking-wide cursor-pointer',
             },
-            isMuted
-              ? React.createElement(VolumeX, { className: 'w-3.5 h-3.5 text-[#EF4444]' })
-              : React.createElement(Volume2, { className: 'w-3.5 h-3.5 text-[#FACC15]' }),
+            isPlaying
+              ? React.createElement(Pause, { className: 'w-3.5 h-3.5' })
+              : React.createElement(Play, { className: 'w-3.5 h-3.5' }),
+            isPlaying ? 'Pause OST' : 'Play OST',
+          ),
+          React.createElement(
+            'span',
+            { className: 'text-[10px] font-mono font-bold uppercase tracking-wider text-white/60' },
+            'Audio Mixer',
           ),
         ),
+        React.createElement(AudioMixerControls, { variant: 'panel' }),
       ),
 
       embedSrc
@@ -172,28 +216,15 @@ export function SoundCloudMusicBar(
           }),
     ),
 
-    !isOpen && !isInMatch
-      ? React.createElement(
-          'button',
-          {
-            type: 'button',
-            onClick: onToggleOpen,
-            title: 'Open Stage SoundCloud OST Player',
-            className:
-              'pointer-events-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-sm bg-[#111827]/95 hover:bg-[#1E293B] border-2 border-black text-white shadow-[0_6px_16px_rgba(0,0,0,0.5)] cursor-pointer transition-transform active:scale-95',
-          },
-          React.createElement(Music, {
-            className: [
-              'w-3.5 h-3.5',
-              isPlaying ? 'text-[#FACC15]' : 'text-[#94A3B8]',
-            ].join(' '),
-          }),
-          React.createElement(
-            'span',
-            { className: 'text-[11px] font-black uppercase tracking-wide max-w-[200px] truncate' },
-            stage.ostTitle,
-          ),
-        )
+    showCollapsedBar
+      ? React.createElement(CollapsedMusicBar, {
+          ostTitle: stage.ostTitle,
+          isPlaying,
+          isMuted,
+          volume,
+          onToggleMute: toggleMute,
+          onToggleOpen,
+        })
       : null,
   );
 }

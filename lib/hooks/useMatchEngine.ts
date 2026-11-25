@@ -17,6 +17,7 @@ export interface MatchRuntimeState {
 
 interface RuntimeRefs {
   bridge: EngineWorkerBridge | null;
+  poller: MainThreadInputPoller | null;
   isPaused: boolean;
   onToggleEra: () => void;
   era: GraphicsEra;
@@ -34,6 +35,7 @@ export function useMatchEngine(
 ) {
   const runtimeRef = useRef<RuntimeRefs>({
     bridge: null,
+    poller: null,
     isPaused: false,
     onToggleEra,
     era: matchConfig.graphicsEra,
@@ -68,11 +70,12 @@ export function useMatchEngine(
     const container = containerRef.current;
     if (!canvasHost || !container) return;
 
+    const runtime = runtimeRef.current;
     const bridge = new EngineWorkerBridge();
-    runtimeRef.current.bridge = bridge;
+    runtime.bridge = bridge;
 
     const rect = container.getBoundingClientRect();
-    const initW = Math.max(480, Math.floor(rect.width));
+    const initW = Math.max(320, Math.floor(rect.width));
     const initH = Math.max(270, Math.floor(rect.height));
 
     bridge.mount(canvasHost, initW, initH, {
@@ -125,13 +128,14 @@ export function useMatchEngine(
         bridge.setPaused(!runtimeRef.current.isPaused);
       },
     });
+    runtime.poller = poller;
     poller.start();
 
     const resizeObserver = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;
       bridge.resize(
-        Math.max(480, Math.floor(entry.contentRect.width)),
+        Math.max(320, Math.floor(entry.contentRect.width)),
         Math.max(270, Math.floor(entry.contentRect.height)),
       );
     });
@@ -140,9 +144,10 @@ export function useMatchEngine(
     return () => {
       resizeObserver.disconnect();
       poller.stop();
+      runtime.poller = null;
       online?.detach(bridge);
       bridge.destroy();
-      runtimeRef.current.bridge = null;
+      runtime.bridge = null;
     };
     // Intentionally keyed on primitive match identifiers so OffscreenCanvas transfer occurs once per match
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -184,5 +189,14 @@ export function useMatchEngine(
     });
   };
 
-  return { state, selectCamera, toggleControl, restartMatch };
+  const setTargetLock = (targetSlot: number | null) => {
+    chiptuneAudio.playMenuTick();
+    runtimeRef.current.bridge?.setTargetLock(targetSlot);
+  };
+
+  const setVirtualInputMask = (mask: number) => {
+    runtimeRef.current.poller?.setVirtualP1Mask(mask);
+  };
+
+  return { state, selectCamera, toggleControl, restartMatch, setTargetLock, setVirtualInputMask };
 }

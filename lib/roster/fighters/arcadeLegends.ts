@@ -5,155 +5,15 @@ import {
   buildNesPalettes,
   buildSnesRpgChart,
 } from '../rpgSpriteBuilder';
+import { BOMBERMAN_DUAL_ERA } from './bombermanSprite';
+import { PAC_MAN_ARCADE_PALETTES, PAC_MAN_DUAL_ERA } from './pacmanSprite';
 
-// 16. PAC-MAN (24x24 SNES High-Res Sprite + 16x16 NES Pack)
-const PAC_MAN_SNES = buildSnesRpgChart({
-  fxStyle: 'orb',
-  snesIdle: [
-    '........................',
-    '......111111111.........',
-    '....1133333333311.......',
-    '...133333333333331......',
-    '..13333333113333331.....',
-    '..13333333113333331.....',
-    '.133333333333333331.....',
-    '.13333333333311111......',
-    '.133333333111...........',
-    '.133333331..............',
-    '.133333333111...........',
-    '.13333333333311111......',
-    '.133333333333333331.....',
-    '..13333333333333331.....',
-    '..1881333333331881......',
-    '..1881333333331881......',
-    '...11.11333311.11.......',
-    '.......131131...........',
-    '.......131131...........',
-    '......19911991..........',
-    '.....1999119991.........',
-    '.....1111111111.........',
-    '........................',
-    '........................',
-  ],
-  snesAttack: [
-    '........................',
-    '.......111111111........',
-    '.....1133333333311......',
-    '....133333333333331.....',
-    '...13333333113333331....',
-    '...1333333311333111.....',
-    '..13333333331111........',
-    '..1333333311............',
-    '..13333331..............',
-    '..1333333311............',
-    '..13333333331111........',
-    '...1333333333333111.....',
-    '...13333333333333331....',
-    '....1333333333338881....',
-    '.....111333333118881....',
-    '.......131131...111.....',
-    '......19911991..........',
-    '.....1999119991.........',
-    '.....1111111111.........',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-  ],
-});
+const PAC_MAN_SNES = PAC_MAN_DUAL_ERA.snesChart;
+const PAC_MAN_NES = PAC_MAN_DUAL_ERA.nesChart;
+const PAC_MAN_PALETTES = PAC_MAN_ARCADE_PALETTES;
 
-const PAC_MAN_PALETTES: PalettePreset[] = [
-  {
-    name: 'Namco Arcade Yellow',
-    colors: [
-      '', '#0A0D18', '#FEF08A', '#FACC15', '#CA8A04', '#FDE047', '#A16207',
-      '#FACC15', '#F97316', '#DC2626', '#FFFFFF', '#94A3B8', '#EF4444',
-      '#FACC15', '#FEF08A', '#FFFFFF',
-    ],
-  },
-  {
-    name: 'Ms. Pac-Man Bow',
-    colors: [
-      '', '#180814', '#FEF08A', '#FDE047', '#CA8A04', '#F472B6', '#BE185D',
-      '#FACC15', '#EC4899', '#EF4444', '#FFFFFF', '#94A3B8', '#EC4899',
-      '#F472B6', '#FEF08A', '#FFFFFF',
-    ],
-  },
-  {
-    name: 'Blinky Red',
-    colors: [
-      '', '#140606', '#FECACA', '#EF4444', '#991B1B', '#F87171', '#7F1D1D',
-      '#FACC15', '#F97316', '#1D4ED8', '#FFFFFF', '#94A3B8', '#DC2626',
-      '#EF4444', '#FEF08A', '#FFFFFF',
-    ],
-  },
-  {
-    name: 'Inky Cyan',
-    colors: [
-      '', '#061418', '#E0F2FE', '#22D3EE', '#0891B2', '#67E8F9', '#0E7490',
-      '#FACC15', '#F97316', '#1D4ED8', '#FFFFFF', '#94A3B8', '#06B6D4',
-      '#38BDF8', '#E0F2FE', '#FFFFFF',
-    ],
-  },
-];
-
-// 17. BOMBERMAN (24x24 SNES High-Res Sprite + 16x16 NES Pack)
-const BOMBERMAN_SNES = buildSnesRpgChart({
-  fxStyle: 'orb',
-  snesIdle: [
-    '..........1111..........',
-    '.........188881.........',
-    '..........1111..........',
-    '...........11...........',
-    '......11111111111.......',
-    '.....1aaaaaaaaaaa1......',
-    '....1aa111111111aa1.....',
-    '....1a12212221221a1.....',
-    '....1a12212221221a1.....',
-    '....1a12222222221a1.....',
-    '.....1111111111111......',
-    '......15555555551.......',
-    '....181555555555181.....',
-    '...18815555555551881....',
-    '...18815577777551881....',
-    '....11.155555551.11.....',
-    '.......155111551........',
-    '.......151...151........',
-    '......1881...1881.......',
-    '......18881..18881......',
-    '......11111..11111......',
-    '........................',
-    '........................',
-    '........................',
-  ],
-  snesAttack: [
-    '..........1111..........',
-    '.........188881.........',
-    '..........1111..........',
-    '...........11...........',
-    '......11111111111.......',
-    '.....1aaaaaaaaaaa1......',
-    '....1aa111111111aa1.....',
-    '....1a12212221221a1.....',
-    '....1a12212221221a1.....',
-    '....1a12222222221a1.....',
-    '.....1111111111111......',
-    '......15555555551..1ff..',
-    '....18155555555511111f1.',
-    '...111.1555555551881bb1.',
-    '.......1557777751111bb1.',
-    '.......155111551...111..',
-    '......1551...1551.......',
-    '.....1881.....1881......',
-    '.....18881....18881.....',
-    '.....11111....11111.....',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-  ],
-});
+const BOMBERMAN_SNES = BOMBERMAN_DUAL_ERA.snesChart;
+const BOMBERMAN_NES = BOMBERMAN_DUAL_ERA.nesChart;
 
 const BOMBERMAN_PALETTES: PalettePreset[] = [
   {
@@ -291,11 +151,11 @@ export const ARCADE_LEGENDS_FIGHTERS: readonly FighterBlueprint[] = [
     originTag: 'Pac-Man',
     archetype: 'brawler',
     archetypeLabel: 'Maze Chomper',
-    gridSize: 24,
+    gridSize: 32,
     palettes: PAC_MAN_PALETTES,
     pixelChart: PAC_MAN_SNES,
     eraPacks: {
-      NES: { pixelChart: buildNesDemakeChart(PAC_MAN_SNES), palettes: buildNesPalettes(PAC_MAN_PALETTES) },
+      NES: { pixelChart: PAC_MAN_NES, palettes: buildNesPalettes(PAC_MAN_PALETTES) },
       SNES_SEGA: { pixelChart: PAC_MAN_SNES, palettes: PAC_MAN_PALETTES },
     },
     stats: {
@@ -342,11 +202,11 @@ export const ARCADE_LEGENDS_FIGHTERS: readonly FighterBlueprint[] = [
     originTag: 'Bomberman',
     archetype: 'zoner',
     archetypeLabel: 'Blast Pioneer',
-    gridSize: 24,
+    gridSize: 32,
     palettes: BOMBERMAN_PALETTES,
     pixelChart: BOMBERMAN_SNES,
     eraPacks: {
-      NES: { pixelChart: buildNesDemakeChart(BOMBERMAN_SNES), palettes: buildNesPalettes(BOMBERMAN_PALETTES) },
+      NES: { pixelChart: BOMBERMAN_NES, palettes: buildNesPalettes(BOMBERMAN_PALETTES) },
       SNES_SEGA: { pixelChart: BOMBERMAN_SNES, palettes: BOMBERMAN_PALETTES },
     },
     stats: {

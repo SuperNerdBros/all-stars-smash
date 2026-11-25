@@ -5,6 +5,7 @@ import {
   buildNesPalettes,
   buildSnesRpgChart,
 } from '../rpgSpriteBuilder';
+import { NESS_EARTHBOUND_PALETTES, NESS_UPGRADED_CHART } from './earthboundCast';
 
 // 7. PIKACHU (24x24 SNES High-Res Sprite + 16x16 NES Pack)
 const PIKACHU_SNES = buildSnesRpgChart({
@@ -190,97 +191,9 @@ const CAPTAIN_FALCON_PALETTES: PalettePreset[] = [
   },
 ];
 
-// 9. NESS (24x24 SNES High-Res Sprite + 16x16 NES Pack)
-const NESS_SNES = buildSnesRpgChart({
-  fxStyle: 'orb',
-  snesIdle: [
-    '........................',
-    '......11111111..........',
-    '.....1333333551.........',
-    '....13333335555111......',
-    '....11111111111111......',
-    '....1c2222222221........',
-    '....1c2122222121........',
-    '....1c2222222221........',
-    '.....1222222221.........',
-    '......11111111..........',
-    '....1917777771..........',
-    '...19915555551221.......',
-    '...19917777771221.......',
-    '....111555555111........',
-    '......15555551..........',
-    '......15561651..........',
-    '......1221.1221.........',
-    '......1221.1221.........',
-    '.....13331.13331........',
-    '.....13331.13331........',
-    '.....11111.11111........',
-    '........................',
-    '........................',
-    '........................',
-  ],
-  snesAttack: [
-    '........................',
-    '.......11111111.........',
-    '......1333333551........',
-    '.....13333335555111.....',
-    '.....11111111111111.....',
-    '.....1c2222222221.......',
-    '.....1c2122222121.......',
-    '.....1c2222222221.......',
-    '......1222222221........',
-    '.......11111111....1991.',
-    '.....1917777771...19991.',
-    '....199155555512219991..',
-    '....19917777771221911...',
-    '.....1115555551111......',
-    '.......15561651.........',
-    '......1221..1221........',
-    '.....13331..13331.......',
-    '.....13331..13331.......',
-    '.....11111..11111.......',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-  ],
-});
-
-const NESS_PALETTES: PalettePreset[] = [
-  {
-    name: 'Onett Classic',
-    colors: [
-      '', '#0A0D18', '#FFD2A6', '#EF4444', '#991B1B', '#2563EB', '#1E3A8A',
-      '#FACC15', '#F97316', '#92400E', '#FFFFFF', '#94A3B8', '#18181B',
-      '#38BDF8', '#FEF08A', '#FFFFFF',
-    ],
-  },
-  {
-    name: 'Paula Pink',
-    colors: [
-      '', '#180A14', '#FFD2A6', '#EC4899', '#9D174D', '#38BDF8', '#0284C7',
-      '#FBCFE8', '#F472B6', '#78350F', '#FFFFFF', '#94A3B8', '#78350F',
-      '#F472B6', '#FDE047', '#FFFFFF',
-    ],
-  },
-  {
-    name: 'Ninten Striped',
-    colors: [
-      '', '#0A0D18', '#FFD2A6', '#DC2626', '#991B1B', '#F8FAFC', '#CBD5E1',
-      '#2563EB', '#EF4444', '#78350F', '#FFFFFF', '#94A3B8', '#18181B',
-      '#38BDF8', '#FEF08A', '#FFFFFF',
-    ],
-  },
-  {
-    name: 'Master Belch',
-    colors: [
-      '', '#0A140A', '#FFD2A6', '#16A34A', '#166534', '#A855F7', '#6B21A8',
-      '#84CC16', '#22C55E', '#451A03', '#FFFFFF', '#94A3B8', '#18181B',
-      '#4ADE80', '#FEF08A', '#FFFFFF',
-    ],
-  },
-];
+const NESS_SNES = NESS_UPGRADED_CHART.snesChart;
+const NESS_NES = NESS_UPGRADED_CHART.nesChart;
+const NESS_PALETTES = NESS_EARTHBOUND_PALETTES;
 
 export const NINTENDO_CLASSICS_FIGHTERS: readonly FighterBlueprint[] = [
   {
@@ -398,7 +311,7 @@ export const NINTENDO_CLASSICS_FIGHTERS: readonly FighterBlueprint[] = [
     palettes: NESS_PALETTES,
     pixelChart: NESS_SNES,
     eraPacks: {
-      NES: { pixelChart: buildNesDemakeChart(NESS_SNES), palettes: buildNesPalettes(NESS_PALETTES) },
+      NES: { pixelChart: NESS_NES, palettes: buildNesPalettes(NESS_PALETTES) },
       SNES_SEGA: { pixelChart: NESS_SNES, palettes: NESS_PALETTES },
     },
     stats: {

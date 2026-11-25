@@ -53,12 +53,34 @@ export type SfxEvent =
   | 'doubleJump'
   | 'tripleJump'
   | 'wallJump'
-  | 'hitLight'
-  | 'hitHeavy'
+  | 'land'
+  | 'springBounce'
+  | 'wallCling'
+  | 'whiffLight'
+  | 'whiffHeavy'
+  | 'smashCharge'
   | 'shoot'
+  | 'specialCast'
+  | 'upSpecial'
+  | 'hitLight'
+  | 'hitMedium'
+  | 'hitHeavy'
+  | 'hitFire'
+  | 'hitElectric'
+  | 'hitIce'
+  | 'meteorBounce'
   | 'shield'
+  | 'shieldBreak'
+  | 'armorClang'
+  | 'grab'
+  | 'throwLaunch'
   | 'ko'
-  | 'victory';
+  | 'respawn'
+  | 'victory'
+  | 'menuTick'
+  | 'menuConfirm'
+  | 'menuBack'
+  | 'eraSwap';
 
 export interface HudFighterSnapshot {
   slot: number;
@@ -83,6 +105,7 @@ export interface HudSnapshot {
   paused: boolean;
   matchTimeTicks: number;
   winnerSlot: number | null;
+  lockedTargetSlot: number | null;
   /** Online matches only. */
   net?: NetStats;
   sfxQueue: SfxEvent[];
@@ -133,6 +156,10 @@ export type WorkerInMessage =
   | {
       type: 'SET_PAUSED';
       paused: boolean;
+    }
+  | {
+      type: 'SET_TARGET_LOCK';
+      targetSlot: number | null;
     }
   | {
       type: 'HOT_RELOAD_FIGHTER';

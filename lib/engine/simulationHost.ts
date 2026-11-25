@@ -26,6 +26,11 @@ import {
   type SimulationState,
 } from './physics';
 import { SoftwareRenderer25D } from './renderer';
+import {
+  applyTargetAssist,
+  createTargetAssistMemory,
+  resolveActiveTargetSlot,
+} from './targetAssist';
 import { RollbackSession } from '../net/rollbackSession';
 import type { InputItem, SyncState } from '../net/netTypes';
 
@@ -54,6 +59,8 @@ export class SimulationHost {
   private netIsHost = false;
   private paused = false;
   private hitboxesVisible = false;
+  private lockedTargetSlot: number | null = null;
+  private targetAssistMem = createTargetAssistMemory();
 
   private rafId: number | null = null;
   private timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -72,7 +79,7 @@ export class SimulationHost {
     height: number,
   ): void {
     this.targetCanvas = canvas;
-    this.viewportWidth = Math.max(480, Math.round(width));
+    this.viewportWidth = Math.max(320, Math.round(width));
     this.viewportHeight = Math.max(270, Math.round(height));
     canvas.width = this.viewportWidth;
     canvas.height = this.viewportHeight;
@@ -96,7 +103,7 @@ export class SimulationHost {
         break;
       }
       case 'RESIZE': {
-        this.viewportWidth = Math.max(480, Math.round(msg.viewportWidth));
+        this.viewportWidth = Math.max(320, Math.round(msg.viewportWidth));
         this.viewportHeight = Math.max(270, Math.round(msg.viewportHeight));
         if (this.targetCanvas) {
           this.targetCanvas.width = this.viewportWidth;
@@ -124,6 +131,8 @@ export class SimulationHost {
         this.bakedFighters = resolved.map((bp, i) => bakeFighterSprites(bp, msg.paletteIndices[i] ?? 0));
         this.paused = false;
         this.masks = [];
+        this.lockedTargetSlot = null;
+        this.targetAssistMem = createTargetAssistMemory();
         this.accumulatorMs = 0;
         this.net = null;
         if (msg.net) {
@@ -205,6 +214,11 @@ export class SimulationHost {
         this.emitHudSnapshot();
         break;
       }
+      case 'SET_TARGET_LOCK': {
+        this.lockedTargetSlot = msg.targetSlot;
+        this.emitHudSnapshot();
+        break;
+      }
       case 'HOT_RELOAD_FIGHTER': {
         if (!this.sim || !this.bakedFighters) break;
         for (let i = 0; i < this.sim.fighters.length; i++) {
@@ -279,7 +293,8 @@ export class SimulationHost {
             const behind = this.net.maxRemoteFrame - this.net.frame > this.net.inputDelay + 3;
             if (behind) this.stepNet();
           } else {
-            stepSimulation(this.sim, this.masks);
+            const assistedMasks = this.computeLocalAssistedMasks();
+            stepSimulation(this.sim, assistedMasks);
           }
 
           if (this.sim.pendingShake > 0) {
@@ -316,6 +331,7 @@ export class SimulationHost {
         this.stageCache,
         this.bakedFighters,
         this.hitboxesVisible,
+        this.lockedTargetSlot,
       );
 
       this.hudEmitCounter++;
@@ -336,7 +352,8 @@ export class SimulationHost {
     const items: InputItem[] = [];
     net.localSeats.forEach((seat, k) => {
       if (net.hasInput(seat, target)) return;
-      const mask = this.masks[k] ?? 0;
+      const rawMask = this.masks[k] ?? 0;
+      const mask = k === 0 ? this.assistSeatMask(seat, rawMask) : rawMask;
       net.addLocalInput(seat, mask);
       items.push([seat, target, mask]);
     });
@@ -348,6 +365,41 @@ export class SimulationHost {
       if (hash !== undefined) this.emit({ type: 'NET_SUM', matchId: this.netMatchId, frame, hash });
     }
     return advanced;
+  }
+
+  private computeLocalAssistedMasks(): number[] {
+    if (!this.sim || this.lockedTargetSlot === null) {
+      return this.masks;
+    }
+    const nextMasks = [...this.masks];
+    nextMasks[0] = this.assistSeatMask(0, nextMasks[0] ?? 0);
+    return nextMasks;
+  }
+
+  private assistSeatMask(selfSlot: number, rawMask: number): number {
+    if (!this.sim || this.lockedTargetSlot === null) {
+      return rawMask;
+    }
+    const activeTargetSlot = resolveActiveTargetSlot(this.sim, selfSlot, this.lockedTargetSlot);
+    if (activeTargetSlot !== this.lockedTargetSlot) {
+      this.lockedTargetSlot = activeTargetSlot;
+    }
+    if (activeTargetSlot === null) {
+      return rawMask;
+    }
+    const self = this.sim.fighters[selfSlot];
+    const target = this.sim.fighters[activeTargetSlot];
+    if (!self || !target) {
+      return rawMask;
+    }
+    return applyTargetAssist(
+      rawMask,
+      self,
+      target,
+      this.sim.stage,
+      this.sim.matchTimeTicks,
+      this.targetAssistMem,
+    );
   }
 
   private emitLocal(items: InputItem[]): void {
@@ -397,6 +449,7 @@ export class SimulationHost {
       paused: this.paused,
       matchTimeTicks: this.sim.matchTimeTicks,
       winnerSlot: this.sim.winnerSlot,
+      lockedTargetSlot: this.lockedTargetSlot,
       ...(this.net ? { net: { ...this.net.stats } } : {}),
       sfxQueue,
     };

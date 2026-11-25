@@ -177,14 +177,14 @@ export function buildFullMoveset(bp: FighterBlueprint): FullMoveset {
     // ── Grabs & throws ── (throw hitbox is unused: throws release from the hold)
     grab: derive(jab, {
       name: 'Grab',
-      startup: 6,
-      active: 2,
-      endlag: 24,
+      startup: 5,
+      active: 5,
+      endlag: 20,
       damage: 0,
       baseKnockback: 0,
       knockbackGrowth: 0,
       launchAngleDeg: 0,
-      hitbox: { offsetX: 11, offsetY: -12, width: 12, height: 14 },
+      hitbox: { offsetX: 11, offsetY: -11, width: 18, height: 18 },
     }),
     pummel: derive(jab, {
       name: 'Pummel', startup: 2, active: 1, endlag: 10,

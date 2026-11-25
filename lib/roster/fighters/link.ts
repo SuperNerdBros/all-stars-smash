@@ -1,590 +1,307 @@
 import type { FighterBlueprint } from '../../types/fighter';
-import type { PalettePreset, PixelChart } from '../../types/palette';
-import { makeClip, parseFrame } from '../chartParser';
+import type { AnimState, IndexedFrame, PalettePreset, PixelChart } from '../../types/palette';
+import { makeClip } from '../chartParser';
+import { PixelSpriteCanvas, type ShadePair } from '../classicSpriteCanvas';
 
-// ── AUTHENTIC 1986 THE LEGEND OF ZELDA (NES 8-BIT, 3-COLOR SPRITE CHART) ──
-// Palette semantics: 3 = Zelda Green tunic/hat, c = Orange-Brown hair/shield/boots, 2 = Skin & Wooden Sword
-const NES_IDLE_1 = parseFrame([
-  '.....33333......',
-  '....3333333.....',
-  '...332222233....',
-  '...cc2c22c2cc...',
-  '...c22222222c...',
-  '....c222222c....',
-  '...3333333333...',
-  '..cc3333333322..',
-  '..c2c333333322..',
-  '..c2c3cccccc3...',
-  '..cc33333333....',
-  '....33333333....',
-  '....333..333....',
-  '....ccc..ccc....',
-  '...cccc..cccc...',
-  '................',
-]);
+interface LinkPose {
+  readonly mode: 'idle' | 'walk' | 'jump' | 'slash' | 'spin' | 'rod' | 'hurt';
+  readonly phase: number;
+}
 
-const NES_IDLE_2 = parseFrame([
-  '................',
-  '.....33333......',
-  '....3333333.....',
-  '...332222233....',
-  '...cc2c22c2cc...',
-  '...c22222222c...',
-  '....c222222c....',
-  '..cc3333333322..',
-  '..c2c333333322..',
-  '..c2c3cccccc3...',
-  '..cc33333333....',
-  '....33333333....',
-  '....333..333....',
-  '....ccc..ccc....',
-  '...cccc..cccc...',
-  '................',
-]);
-
-const NES_WALK_1 = parseFrame([
-  '.....33333......',
-  '....3333333.....',
-  '...332222233....',
-  '...cc2c22c2cc...',
-  '...c22222222c...',
-  '....c222222c....',
-  '...333333333....',
-  '..cc333333322...',
-  '..c2c3cccccc....',
-  '..cc33333333....',
-  '....333..333....',
-  '...ccc....ccc...',
-  '..cccc.....ccc..',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_WALK_2 = parseFrame([
-  '.....33333......',
-  '....3333333.....',
-  '...332222233....',
-  '...cc2c22c2cc...',
-  '...c22222222c...',
-  '....c222222c....',
-  '...333333333....',
-  '..cc333333322...',
-  '..c2c3cccccc....',
-  '..cc33333333....',
-  '....3333333.....',
-  '....ccc.ccc.....',
-  '...cccc.ccc.....',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_WALK_3 = parseFrame([
-  '.....33333......',
-  '....3333333.....',
-  '...332222233....',
-  '...cc2c22c2cc...',
-  '...c22222222c...',
-  '....c222222c....',
-  '...333333333....',
-  '..cc333333332...',
-  '..c2c3cccccc22..',
-  '..cc33333333....',
-  '...333...333....',
-  '...ccc....ccc...',
-  '...ccc...cccc...',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_JUMP_1 = parseFrame([
-  '...........2....',
-  '....33333..2....',
-  '...3333333.2....',
-  '..332222233c....',
-  '..cc2c22c2cc....',
-  '..c22222222c....',
-  '..cc3333333.....',
-  '.c2c3cccccc.....',
-  '.cc33333333.....',
-  '...333..333.....',
-  '..ccc....ccc....',
-  '.cccc...........',
-  '................',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_JUMP_2 = parseFrame([
-  '....33333.......',
-  '...3333333..2...',
-  '..332222233.2...',
-  '..cc2c22c2c.c...',
-  '..c22222222c....',
-  '..cc3333333.....',
-  '.c2c3cccccc.....',
-  '.cc3333333......',
-  '...333.333......',
-  '..ccc...ccc.....',
-  '..ccc...ccc.....',
-  '................',
-  '................',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_ATTACK_1 = parseFrame([
-  '.....33333......',
-  '....3333333.....',
-  '...332222233....',
-  '...cc2c22c2cc...',
-  '...c22222222c...',
-  '....c222222c....',
-  '...33333333cc...',
-  '..cc3333332c2222',
-  '..c2c3cccc2c2222',
-  '..cc3333333cc...',
-  '....3333333.....',
-  '...333...333....',
-  '..ccc.....ccc...',
-  '..cccc....cccc..',
-  '................',
-  '................',
-]);
-
-const NES_ATTACK_2 = parseFrame([
-  '.....33333...2..',
-  '....3333333..22.',
-  '...332222233..22',
-  '...cc2c22c2cc.22',
-  '...c22222222c22.',
-  '....c222222cc2..',
-  '...33333333cc...',
-  '..cc3333333.....',
-  '..c2c3cccccc....',
-  '..cc33333333....',
-  '....3333333.....',
-  '...333...333....',
-  '..ccc.....ccc...',
-  '..cccc....cccc..',
-  '................',
-  '................',
-]);
-
-const NES_SMASH_1 = parseFrame([
-  '..22.33333......',
-  '.22.3333333.....',
-  '.c.332222233....',
-  '..ccc2c22c2cc...',
-  '...c22222222c...',
-  '....c222222c....',
-  '..cc33333333....',
-  '..c2c3cccccc....',
-  '..cc33333333....',
-  '....3333333.....',
-  '...333...333....',
-  '..ccc.....ccc...',
-  '..cccc....cccc..',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_SMASH_2 = parseFrame([
-  '.....33333....22',
-  '....3333333..22e',
-  '...33222223322e.',
-  '...cc2c22c2c2e..',
-  '...c22222222c...',
-  '....c222222cc...',
-  '...333333333....',
-  '..cc3333333.....',
-  '..c2c3cccccc....',
-  '..cc33333333....',
-  '....3333333.....',
-  '...333...333....',
-  '..ccc.....ccc...',
-  '..cccc....cccc..',
-  '................',
-  '................',
-]);
-
-const NES_SPECIAL_1 = parseFrame([
-  '.....33333......',
-  '....3333333.....',
-  '...332222233....',
-  '...cc2c22c2cc...',
-  '...c22222222c...',
-  '....c222222c..c.',
-  '...333333333.cc.',
-  '..cc333333322222',
-  '..c2c3cccccc.cc.',
-  '..cc33333333..c.',
-  '....3333333.....',
-  '...333...333....',
-  '..ccc.....ccc...',
-  '..cccc....cccc..',
-  '................',
-  '................',
-]);
-
-const NES_HURT_1 = parseFrame([
-  '................',
-  '...33333........',
-  '..3333333.......',
-  '.332222233......',
-  '.cc2c22c2cc.....',
-  '..c2222222c.....',
-  '.cc3333333..2...',
-  '.c2c3ccccc.22...',
-  '.cc3333333......',
-  '...333..333.....',
-  '..ccc....cccc...',
-  '.ccc............',
-  '................',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_CHART: PixelChart = {
-  idle: makeClip([NES_IDLE_1, NES_IDLE_2], 18),
-  walk: makeClip([NES_WALK_1, NES_WALK_2, NES_WALK_3, NES_WALK_2], 7),
-  jump: makeClip([NES_JUMP_1, NES_JUMP_2], 12),
-  attack: makeClip([NES_ATTACK_1, NES_ATTACK_2], 5),
-  smash: makeClip([NES_SMASH_1, NES_SMASH_2], 8),
-  special: makeClip([NES_SPECIAL_1, NES_ATTACK_1], 7),
-  hurt: makeClip([NES_HURT_1], 10),
+const LINK_POSES: Record<AnimState, readonly LinkPose[]> = {
+  idle: [
+    { mode: 'idle', phase: 0 },
+    { mode: 'idle', phase: 1 },
+  ],
+  walk: [
+    { mode: 'walk', phase: 0 },
+    { mode: 'walk', phase: 1 },
+    { mode: 'walk', phase: 2 },
+    { mode: 'walk', phase: 3 },
+  ],
+  jump: [
+    { mode: 'jump', phase: 0 },
+    { mode: 'jump', phase: 1 },
+  ],
+  attack: [
+    { mode: 'slash', phase: 0 },
+    { mode: 'slash', phase: 1 },
+  ],
+  smash: [
+    { mode: 'spin', phase: 0 },
+    { mode: 'spin', phase: 1 },
+  ],
+  special: [
+    { mode: 'rod', phase: 0 },
+    { mode: 'rod', phase: 1 },
+  ],
+  hurt: [
+    { mode: 'hurt', phase: 0 },
+  ],
 };
+
+const LINK_TICKS: Record<AnimState, number> = {
+  idle: 20,
+  walk: 7,
+  jump: 10,
+  attack: 5,
+  smash: 6,
+  special: 7,
+  hurt: 12,
+};
+
+function computeLinkBobY(mode: LinkPose['mode'], phase: number, jumpLift: number): number {
+  const isIdleDip = mode === 'idle' && phase === 1;
+  if (isIdleDip) return 1;
+  const isJumping = mode === 'jump';
+  if (isJumping) return jumpLift;
+  return 0;
+}
+
+function computeLinkStride(mode: LinkPose['mode'], phase: number, amplitude: number): number {
+  const isWalking = mode === 'walk';
+  if (!isWalking) return 0;
+  const pattern = [amplitude, 0, -amplitude, 0];
+  return pattern[phase % pattern.length];
+}
+
+function renderNesZelda1Frame(pose: LinkPose): IndexedFrame {
+  const canvas = new PixelSpriteCanvas(16, 16);
+  const cx = pose.mode === 'hurt' ? 6 : 7;
+  const bobY = computeLinkBobY(pose.mode, pose.phase, -1);
+  const stride = computeLinkStride(pose.mode, pose.phase, 1);
+  const hy = 4 + bobY;
+  const ty = 8 + bobY;
+
+  canvas.fillRect(cx - 3 - stride, ty + 4, 3, 2, 12);
+  canvas.fillRect(cx + 1 + stride, ty + 4, 3, 2, 12);
+  canvas.fillRect(cx - 3, ty, 7, 5, 3);
+  canvas.fillRect(cx - 3, ty + 3, 7, 1, 12);
+
+  canvas.fillRect(cx - 3, hy - 2, 7, 3, 3);
+  canvas.fillRect(cx - 5, hy - 1, 3, 2, 3);
+  canvas.fillRect(cx - 2, hy, 5, 4, 2);
+  canvas.fillRect(cx - 3, hy, 2, 2, 12);
+  canvas.plot(cx + 1, hy + 1, 12);
+  canvas.plot(cx + 3, hy + 1, 12);
+
+  const isSlash = pose.mode === 'slash';
+  const isSpin = pose.mode === 'spin';
+  const isRod = pose.mode === 'rod';
+
+  if (isSlash || isSpin) {
+    const reach = pose.phase === 0 ? 5 : 7;
+    canvas.fillRect(cx + 4, ty + 1, 2, 2, 3);
+    canvas.fillRect(cx + 5, ty, 1, 4, 3);
+    canvas.fillRect(cx + 6, ty + 1, reach, 2, 12);
+    if (isSpin) {
+      canvas.fillRect(cx - 6, ty + 1, 3, 2, 12);
+      canvas.plot(cx + 6 + reach - 1, ty, 2);
+    }
+  } else if (isRod) {
+    canvas.fillRect(cx + 4, ty, 2, 3, 2);
+    canvas.fillEllipse(cx + 7, ty + 1, 1.8, 1.8, 5);
+    canvas.plot(cx + 7, ty - 1, 10);
+  } else {
+    canvas.fillRect(cx + 3, ty, 3, 4, 12);
+    canvas.fillRect(cx + 4, ty + 1, 1, 2, 2);
+    canvas.plot(cx + 3, ty + 1, 2);
+    canvas.plot(cx + 5, ty + 1, 2);
+  }
+
+  return canvas.toFrame();
+}
+
+function drawAlttpShield(canvas: PixelSpriteCanvas, sx: number, sy: number): void {
+  canvas.fillRoundedRect(sx, sy, 5, 7, 5);
+  canvas.fillRect(sx + 1, sy + 1, 3, 5, 10);
+  canvas.fillRect(sx + 1, sy + 2, 3, 3, 5);
+  canvas.plot(sx + 2, sy + 3, 7);
+}
+
+function drawAlttpWeapon(canvas: PixelSpriteCanvas, cx: number, ty: number, pose: LinkPose): void {
+  const isSlash = pose.mode === 'slash';
+  const isSpin = pose.mode === 'spin';
+  const isRod = pose.mode === 'rod';
+
+  if (isSlash) {
+    if (pose.phase === 0) {
+      canvas.drawLine(cx + 5, ty + 1, cx + 12, ty - 8, 10, 0.7);
+      canvas.fillRect(cx + 4, ty, 3, 2, 5);
+      canvas.drawArc(cx + 8, ty - 2, 7.2, 6.2, -90, 20, 14, 0.7);
+      return;
+    }
+    canvas.drawLine(cx + 5, ty + 2, cx + 16, ty + 2, 10, 0.8);
+    canvas.drawLine(cx + 6, ty + 2, cx + 16, ty + 2, 15, 0);
+    canvas.fillRect(cx + 4, ty, 2, 5, 5);
+    canvas.drawArc(cx + 9, ty + 1, 7.6, 6.4, -55, 55, 14, 0.8);
+    return;
+  }
+
+  if (isSpin) {
+    const startDeg = pose.phase === 0 ? -150 : 10;
+    canvas.drawArc(cx, ty + 2, 11.0, 7.2, startDeg, startDeg + 200, 14, 1.1);
+    canvas.drawArc(cx, ty + 2, 9.8, 6.2, startDeg + 20, startDeg + 180, 15, 0.5);
+    canvas.drawLine(cx + 4, ty + 2, cx + 14, ty + 2, 10, 0.8);
+    return;
+  }
+
+  if (isRod) {
+    canvas.drawLine(cx + 5, ty + 1, cx + 11, ty - 3, 8, 0.7);
+    canvas.fillEllipse(cx + 13, ty - 4, 2.8, 2.8, pose.phase === 0 ? 13 : 14);
+    canvas.plot(cx + 13, ty - 4, 15);
+    return;
+  }
+
+  drawAlttpShield(canvas, cx + 3, ty + 1);
+}
+
+function renderSnesAlttpLinkFrame(pose: LinkPose): IndexedFrame {
+  const canvas = new PixelSpriteCanvas(32, 32);
+  const isHurt = pose.mode === 'hurt';
+  const isSlashLunge = pose.mode === 'slash' && pose.phase === 1;
+  let cx = 14;
+  if (isHurt) cx = 12;
+  if (isSlashLunge) cx = 15;
+  const bobY = computeLinkBobY(pose.mode, pose.phase, -2);
+  const stride = computeLinkStride(pose.mode, pose.phase, 2);
+  const hy = 11 + bobY;
+  const ty = 17 + bobY;
+
+  canvas.fillRoundedRect(cx - 4 - stride, ty + 8, 4, 4, 9);
+  canvas.fillRoundedRect(cx + 1 + stride, ty + 8, 4, 4, 9);
+  canvas.fillRect(cx - 3 - stride, ty + 7, 3, 2, 2);
+  canvas.fillRect(cx + 1 + stride, ty + 7, 3, 2, 2);
+
+  canvas.fillRoundedRect(cx - 5, ty - 1, 10, 9, 3);
+  canvas.fillRect(cx - 5, ty + 4, 10, 2, 9);
+  canvas.fillRect(cx - 1, ty + 4, 3, 2, 7);
+
+  if (isHurt) {
+    canvas.fillRect(cx - 7, ty - 2, 3, 3, 3);
+    canvas.fillRect(cx + 5, ty - 2, 3, 3, 3);
+  } else {
+    canvas.fillRect(cx - 6, ty + 1, 2, 4, 3);
+    canvas.fillRect(cx - 6, ty + 4, 2, 2, 2);
+    canvas.fillRect(cx + 4, ty, 3, 4, 3);
+    canvas.fillRect(cx + 6, ty + 2, 2, 2, 2);
+  }
+
+  canvas.fillEllipse(cx, hy, 4.8, 4.4, 2);
+  canvas.fillRect(cx - 6, hy - 1, 2, 2, 2);
+  canvas.plot(cx + 1, hy - 1, 1);
+  canvas.plot(cx + 1, hy, 1);
+  canvas.plot(cx + 3, hy - 1, 1);
+  canvas.plot(cx + 3, hy, 1);
+
+  canvas.fillRect(cx - 5, hy - 2, 3, 4, 12);
+  canvas.fillRect(cx - 2, hy - 3, 6, 2, 12);
+  canvas.plot(cx + 4, hy - 2, 12);
+
+  canvas.fillEllipse(cx - 1, hy - 5, 5.2, 2.8, 3);
+  canvas.fillTriangle(cx - 4, hy - 5, cx - 10, hy - 1, cx - 3, hy - 1, 3);
+  canvas.fillRect(cx - 5, hy - 3, 9, 1, 7);
+
+  const shades: readonly ShadePair[] = [
+    { base: 3, shadow: 4 },
+    { base: 5, shadow: 6 },
+    { base: 7, shadow: 8 },
+  ];
+  canvas.applyCelShading(shades);
+  drawAlttpWeapon(canvas, cx, ty, pose);
+  canvas.applyAutoOutline(1, [13, 14, 15]);
+  return canvas.toFrame();
+}
+
+function buildLinkChart(renderer: (pose: LinkPose) => IndexedFrame): PixelChart {
+  const states: AnimState[] = ['idle', 'walk', 'jump', 'attack', 'smash', 'special', 'hurt'];
+  const chart = {} as PixelChart;
+  for (const state of states) {
+    chart[state] = makeClip(
+      LINK_POSES[state].map((pose) => renderer(pose)),
+      LINK_TICKS[state],
+    );
+  }
+  return chart;
+}
+
+const NES_CHART: PixelChart = buildLinkChart(renderNesZelda1Frame);
+const SNES_CHART: PixelChart = buildLinkChart(renderSnesAlttpLinkFrame);
 
 const NES_PALETTES: PalettePreset[] = [
   {
-    name: 'Zelda 1 Green 8-Bit',
+    name: 'Zelda 1 Green',
     colors: [
-      '', '#000000', '#FCA044', '#80D010', '#008800', '#C84C0C', '#7C2800',
-      '#FCA044', '#C84C0C', '#C84C0C', '#FCA044', '#C84C0C', '#C84C0C',
-      '#FCA044', '#FCFCFC', '#FFFFFF',
+      '', '#000000', '#F8A838', '#70B010', '#487808', '#2038EC', '#101888',
+      '#F8D828', '#C05810', '#883808', '#FCFCFC', '#B8B8B8', '#C05810',
+      '#F8A838', '#F8D878', '#FCFCFC',
     ],
   },
   {
     name: 'Blue Ring NES',
     colors: [
-      '', '#000000', '#FCA044', '#98B8F8', '#3C78F8', '#C84C0C', '#7C2800',
-      '#FCA044', '#C84C0C', '#C84C0C', '#FCFCFC', '#98B8F8', '#C84C0C',
-      '#68B8F8', '#FFFFFF', '#FFFFFF',
+      '', '#000000', '#F8A838', '#3878F8', '#1840A8', '#2038EC', '#101888',
+      '#F8D828', '#C05810', '#883808', '#FCFCFC', '#B8B8B8', '#C05810',
+      '#68B8F8', '#B8E8F8', '#FCFCFC',
     ],
   },
   {
     name: 'Red Ring NES',
     colors: [
-      '', '#000000', '#FCA044', '#F83800', '#A81000', '#C84C0C', '#7C2800',
-      '#FCA044', '#F8B800', '#C84C0C', '#FCFCFC', '#F8B878', '#C84C0C',
-      '#F87800', '#FCFCFC', '#FFFFFF',
+      '', '#000000', '#F8A838', '#E02820', '#981008', '#2038EC', '#101888',
+      '#F8D828', '#C05810', '#883808', '#FCFCFC', '#B8B8B8', '#C05810',
+      '#F85838', '#F8D878', '#FCFCFC',
     ],
   },
   {
     name: 'Shadow Link NES',
     colors: [
-      '', '#000000', '#7C7C7C', '#242424', '#000000', '#000000', '#000000',
-      '#F83800', '#F83800', '#000000', '#BCBCBC', '#7C7C7C', '#000000',
-      '#F83800', '#FCA044', '#FFFFFF',
+      '', '#000000', '#94A3B8', '#1E293B', '#09090B', '#DC2626', '#7F1D1D',
+      '#EF4444', '#475569', '#18181B', '#E2E8F0', '#64748B', '#334155',
+      '#EF4444', '#FCA5A5', '#FFFFFF',
     ],
   },
 ];
 
-// ── AUTHENTIC 16-BIT A LINK TO THE PAST (SNES SHADED SPRITE CHART) ──
-const SNES_IDLE_1 = parseFrame([
-  '...1111111......',
-  '..133333441.....',
-  '.13377777731....',
-  '..1772212121....',
-  '..1722222221....',
-  '...12222221.1a1.',
-  '..1333333331aa1.',
-  '.15533344335a1..',
-  '.157533443351...',
-  '.15753999931....',
-  '.15553334431....',
-  '...133334431....',
-  '...122212221....',
-  '...199919991....',
-  '..19999199991...',
-  '..11111111111...',
-]);
-
-const SNES_IDLE_2 = parseFrame([
-  '................',
-  '...1111111......',
-  '..133333441.....',
-  '.13377777731....',
-  '..1772212121....',
-  '..17222222211a1.',
-  '...122222211aa1.',
-  '.15533344335a1..',
-  '.157533443351...',
-  '.15753999931....',
-  '.15553334431....',
-  '...122212221....',
-  '...199919991....',
-  '..19999199991...',
-  '..11111111111...',
-  '................',
-]);
-
-const SNES_WALK_1 = parseFrame([
-  '...1111111......',
-  '..133333441.....',
-  '.13377777731....',
-  '..1772212121....',
-  '..1722222221....',
-  '...12222221..1a.',
-  '..1333333331aa1.',
-  '.1553334435a1...',
-  '.15753999931....',
-  '.15553334431....',
-  '...1331.1331....',
-  '..1221...1221...',
-  '.19991....1991..',
-  '199991.....1991.',
-  '................',
-  '................',
-]);
-
-const SNES_WALK_2 = parseFrame([
-  '...1111111......',
-  '..133333441.....',
-  '.13377777731....',
-  '..1772212121....',
-  '..1722222221....',
-  '...12222221.1a1.',
-  '..1333333331aa1.',
-  '.15533344335a1..',
-  '.15753999931....',
-  '.15553334431....',
-  '...13334431.....',
-  '...12211221.....',
-  '...199919991....',
-  '..1999919991....',
-  '................',
-  '................',
-]);
-
-const SNES_WALK_3 = parseFrame([
-  '...1111111......',
-  '..133333441.....',
-  '.13377777731....',
-  '..1772212121....',
-  '..1722222221....',
-  '...12222221.....',
-  '..1333333331a...',
-  '.1553334433aa1..',
-  '.15753999931a1..',
-  '.15553334431....',
-  '..1331...1331...',
-  '..1221...1221...',
-  '..19991...19991.',
-  '..1991...199991.',
-  '................',
-  '................',
-]);
-
-const SNES_JUMP_1 = parseFrame([
-  '...........1a1..',
-  '..1111111.1aa1..',
-  '.1333334411a1...',
-  '133777777331....',
-  '.1772212121.....',
-  '.1722222221.....',
-  '..1333333331....',
-  '155333443331....',
-  '15753999931.....',
-  '155533344331....',
-  '..1331..1331....',
-  '.19991...19991..',
-  '199991..........',
-  '................',
-  '................',
-  '................',
-]);
-
-const SNES_JUMP_2 = parseFrame([
-  '..1111111.......',
-  '.133333441.1a1..',
-  '13377777731aa1..',
-  '.1772212121a1...',
-  '.1722222221.....',
-  '..1333333331....',
-  '155333443331....',
-  '15753999931.....',
-  '15553334431.....',
-  '..1331.1331.....',
-  '.19991..19991...',
-  '.19991..19991...',
-  '................',
-  '................',
-  '................',
-  '................',
-]);
-
-const SNES_ATTACK_1 = parseFrame([
-  '...1111111......',
-  '..133333441.....',
-  '.13377777731....',
-  '..1772212121....',
-  '..1722222221....',
-  '...12222221.....',
-  '..1333333338aaa.',
-  '.1553334438aafaf',
-  '.15753999938aaa.',
-  '.15553334431....',
-  '...133334431....',
-  '..1221...1221...',
-  '.19991....19991.',
-  '.199991..199991.',
-  '................',
-  '................',
-]);
-
-const SNES_ATTACK_2 = parseFrame([
-  '...1111111..aa..',
-  '..133333441..af.',
-  '.1337777773...af',
-  '..177221212...af',
-  '..172222222..af.',
-  '...1222222..8a..',
-  '..13333333388...',
-  '.15533344331....',
-  '.15753999931....',
-  '.15553334431....',
-  '...133334431....',
-  '..1221...1221...',
-  '.19991....19991.',
-  '.199991..199991.',
-  '................',
-  '................',
-]);
-
-const SNES_SMASH_1 = parseFrame([
-  '.1aa111111......',
-  '1af33333441.....',
-  '1af377777731....',
-  '.1872212121.....',
-  '.1822222221.....',
-  '..1333333331....',
-  '.15533344331....',
-  '.15753999931....',
-  '.15553334431....',
-  '...133334431....',
-  '..1221...1221...',
-  '.19991....19991.',
-  '.199991..199991.',
-  '................',
-  '................',
-  '................',
-]);
-
-const SNES_SMASH_2 = parseFrame([
-  '...1111111....ee',
-  '..133333441..eaf',
-  '.1337777773.eaf.',
-  '..177221212eaf..',
-  '..17222222eaf...',
-  '...1222228af....',
-  '..133333388.....',
-  '.15533344331....',
-  '.15753999931....',
-  '.15553334431....',
-  '...133334431....',
-  '..1221...1221...',
-  '.19991....19991.',
-  '.199991..199991.',
-  '................',
-  '................',
-]);
-
-const SNES_SPECIAL_1 = parseFrame([
-  '...1111111......',
-  '..133333441.....',
-  '.13377777731....',
-  '..1772212121....',
-  '..1722222221....',
-  '...12222221...d.',
-  '..1333333331.dde',
-  '.1553334433aaeef',
-  '.15753999931.dde',
-  '.15553334431..d.',
-  '...133334431....',
-  '..1221...1221...',
-  '.19991....19991.',
-  '.199991..199991.',
-  '................',
-  '................',
-]);
-
-const SNES_HURT_1 = parseFrame([
-  '................',
-  '.1111111........',
-  '133333441.......',
-  '1377777731......',
-  '.172212121......',
-  '.122222221......',
-  '15533344331.1a..',
-  '157539999311aa..',
-  '15553334431.....',
-  '..1331..1331....',
-  '.19991...199991.',
-  '19991...........',
-  '................',
-  '................',
-  '................',
-  '................',
-]);
-
-const SNES_CHART: PixelChart = {
-  idle: makeClip([SNES_IDLE_1, SNES_IDLE_2], 18),
-  walk: makeClip([SNES_WALK_1, SNES_WALK_2, SNES_WALK_3, SNES_WALK_2], 7),
-  jump: makeClip([SNES_JUMP_1, SNES_JUMP_2], 12),
-  attack: makeClip([SNES_ATTACK_1, SNES_ATTACK_2], 5),
-  smash: makeClip([SNES_SMASH_1, SNES_SMASH_2], 8),
-  special: makeClip([SNES_SPECIAL_1, SNES_ATTACK_1], 7),
-  hurt: makeClip([SNES_HURT_1], 10),
-};
-
 const SNES_PALETTES: PalettePreset[] = [
   {
-    name: 'ALttP Classic Green',
+    name: 'ALTTP Pink Hair',
     colors: [
-      '', '#000000', '#FFCC99', '#18A828', '#007018', '#1868D8', '#0C3C90',
-      '#F8D018', '#3888F8', '#783C10', '#E0ECFC', '#98B0C8', '#884810',
-      '#48C8FF', '#C8F0FF', '#FFFFFF',
+      '', '#0A0D10', '#F8C890', '#28B828', '#147814', '#3870E8', '#184098',
+      '#F8D020', '#C88810', '#884818', '#F8F8F8', '#94A3B8', '#F078B8',
+      '#38BDF8', '#FEF08A', '#FFFFFF',
     ],
   },
   {
-    name: 'Red Mail 16-Bit',
+    name: 'Blue Mail ALTTP',
     colors: [
-      '', '#000000', '#FFCC99', '#D82800', '#981000', '#1868D8', '#0C3C90',
-      '#F8D018', '#F87800', '#582808', '#E0ECFC', '#98B0C8', '#783C10',
-      '#F87800', '#F8D878', '#FFFFFF',
+      '', '#0A0D10', '#F8C890', '#3878E8', '#1848A0', '#E03838', '#981818',
+      '#F8D020', '#C88810', '#884818', '#F8F8F8', '#94A3B8', '#F078B8',
+      '#60A5FA', '#FEF08A', '#FFFFFF',
     ],
   },
   {
-    name: 'Blue Mail 16-Bit',
+    name: 'Red Mail ALTTP',
     colors: [
-      '', '#000000', '#FFCC99', '#0078E8', '#0048A8', '#783C10', '#482008',
-      '#F8D828', '#38B8F8', '#582808', '#E0F4FF', '#88C8F8', '#783C10',
-      '#28D8F8', '#D0F8FF', '#FFFFFF',
+      '', '#0A0D10', '#F8C890', '#E03028', '#981410', '#8838D8', '#501888',
+      '#F8D020', '#C88810', '#783810', '#F8F8F8', '#94A3B8', '#F078B8',
+      '#F97316', '#FEF08A', '#FFFFFF',
+    ],
+  },
+  {
+    name: 'Hero Blonde',
+    colors: [
+      '', '#0A0D10', '#F8C890', '#28B828', '#147814', '#2563EB', '#1E3A8A',
+      '#F8D020', '#C88810', '#884818', '#F8F8F8', '#94A3B8', '#FACC15',
+      '#38BDF8', '#FEF08A', '#FFFFFF',
     ],
   },
   {
     name: 'Dark Link 16-Bit',
     colors: [
-      '', '#000000', '#64748B', '#1E293B', '#0F172A', '#334155', '#09090B',
-      '#E52521', '#991B1B', '#09090B', '#94A3B8', '#475569', '#09090B',
-      '#EF4444', '#FCA5A5', '#F8FAFC',
+      '', '#050508', '#64748B', '#1E293B', '#0F172A', '#334155', '#09090B',
+      '#EF4444', '#991B1B', '#0F172A', '#CBD5E1', '#475569', '#94A3B8',
+      '#EF4444', '#FCA5A5', '#FFFFFF',
     ],
   },
 ];
@@ -597,9 +314,9 @@ export const LINK_BLUEPRINT: FighterBlueprint = {
   originTag: 'Legend of Zelda',
   archetype: 'sword-hero',
   archetypeLabel: 'Sword & Shield',
-  gridSize: 16,
-  palettes: NES_PALETTES,
-  pixelChart: NES_CHART,
+  gridSize: 32,
+  palettes: SNES_PALETTES,
+  pixelChart: SNES_CHART,
   eraPacks: {
     NES: { pixelChart: NES_CHART, palettes: NES_PALETTES },
     SNES_SEGA: { pixelChart: SNES_CHART, palettes: SNES_PALETTES },

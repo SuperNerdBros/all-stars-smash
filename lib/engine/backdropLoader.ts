@@ -1,6 +1,8 @@
+import type { StagePattern } from '../types/stage';
+
 /**
- * Worker-safe asynchronous image loader that fetches rendered stage PNG/JPG
- * artworks into cached ImageBitmaps for zero-jank parallax background drawing.
+ * Worker-safe asynchronous image loader that fetches full-HD stage backdrops
+ * and painted platform material textures into cached ImageBitmaps for zero-jank rendering.
  */
 export class StageBackdropLoader {
   private readonly cache = new Map<string, ImageBitmap>();
@@ -21,7 +23,7 @@ export class StageBackdropLoader {
         }
       })
       .catch(() => {
-        // chemx-allow: best-effort fallback to procedural retro sky when backdrop image is unavailable
+        // chemx-allow: best-effort fallback to procedural surface when artwork is unavailable
         this.pending.delete(url);
       });
   }
@@ -32,7 +34,26 @@ export class StageBackdropLoader {
     this.request(url);
     return null;
   }
+
+  public preloadAllTextures(): void {
+    for (const url of Object.values(STAGE_TEXTURES)) {
+      this.request(url);
+    }
+  }
+
+  public getTexture(pattern: StagePattern): ImageBitmap | null {
+    return this.get(STAGE_TEXTURES[pattern]);
+  }
 }
+
+export const STAGE_TEXTURES: Record<StagePattern, string> = {
+  'grass-stone': '/assets/stages/textures/grass-stone.jpg',
+  'obsidian-gold': '/assets/stages/textures/obsidian-gold.jpg',
+  'brick-fortress': '/assets/stages/textures/brick-fortress.jpg',
+  'wood-bridge': '/assets/stages/textures/wood-bridge.jpg',
+  'cloud-deck': '/assets/stages/textures/cloud-deck.jpg',
+  'crystal-pillar': '/assets/stages/textures/crystal-pillar.jpg',
+};
 
 export const STAGE_BACKDROPS = {
   kingdom: '/assets/stages/stage_bg_kingdom_1795503442812.jpg',

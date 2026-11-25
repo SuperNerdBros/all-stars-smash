@@ -1,457 +1,266 @@
 import type { FighterBlueprint } from '../../types/fighter';
-import type { PalettePreset, PixelChart } from '../../types/palette';
-import { makeClip, parseFrame } from '../chartParser';
+import type { AnimState, IndexedFrame, PalettePreset, PixelChart } from '../../types/palette';
+import {
+  buildDualEraSpriteCharts,
+  PixelSpriteCanvas,
+  type ShadePair,
+} from '../classicSpriteCanvas';
+import { buildNesPalettes } from '../rpgSpriteBuilder';
 
-// ── AUTHENTIC 1986 METROID (NES 8-BIT 3-COLOR SPRITE CHART) ──
-// Exact NES Metroid colors: 5 = Crimson helmet/chest/boots, 3 = Yellow-Orange suit/shoulders, 7 = Emerald visor & cannon
-const NES_IDLE_1 = parseFrame([
-  '.....55555......',
-  '....5555555.....',
-  '....5577775.....',
-  '....5557755.....',
-  '.....55555......',
-  '...335555533....',
-  '..333533353377..',
-  '..33.53335.7777.',
-  '.....55555.777..',
-  '....3355533.....',
-  '....33...33.....',
-  '...555...555....',
-  '...555...555....',
-  '...555...555....',
-  '..5555...5555...',
-  '................',
-]);
+interface SamusPose {
+  readonly mode: 'stand' | 'run' | 'somersault' | 'beam' | 'smash' | 'aimUp' | 'morph' | 'shatter';
+  readonly phase: number;
+}
 
-const NES_IDLE_2 = parseFrame([
-  '................',
-  '.....55555......',
-  '....5555555.....',
-  '....5577775.....',
-  '....5557755.....',
-  '...335555533....',
-  '..333533353377..',
-  '..33.53335.7777.',
-  '.....55555.777..',
-  '....3355533.....',
-  '....33...33.....',
-  '...555...555....',
-  '...555...555....',
-  '..5555...5555...',
-  '................',
-  '................',
-]);
-
-const NES_WALK_1 = parseFrame([
-  '.....55555......',
-  '....5555555.....',
-  '....5577775.....',
-  '....5557755.....',
-  '.....55555......',
-  '...335555533....',
-  '..333533353377..',
-  '.....53335.7777.',
-  '....5555555.....',
-  '...333...333....',
-  '..333.....333...',
-  '..555.....555...',
-  '.5555......555..',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_WALK_2 = parseFrame([
-  '.....55555......',
-  '....5555555.....',
-  '....5577775.....',
-  '....5557755.....',
-  '.....55555......',
-  '...335555533....',
-  '..333533353377..',
-  '.....53335.7777.',
-  '....5555555.....',
-  '....333.333.....',
-  '....333.333.....',
-  '....555.555.....',
-  '...5555.5555....',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_WALK_3 = parseFrame([
-  '.....55555......',
-  '....5555555.....',
-  '....5577775.....',
-  '....5557755.....',
-  '.....55555......',
-  '...335555533....',
-  '..333533353377..',
-  '.....53335.7777.',
-  '....5555555.....',
-  '....333...333...',
-  '...333.....333..',
-  '...555.....555..',
-  '...555....5555..',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_JUMP_1 = parseFrame([
-  '................',
-  '.....33333......',
-  '...335555533....',
-  '..35533333553...',
-  '..35337773353...',
-  '.3353755573533..',
-  '.3353757573533..',
-  '.3353755573533..',
-  '..35337773353...',
-  '..35533333553...',
-  '...335555533....',
-  '.....33333......',
-  '................',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_JUMP_2 = parseFrame([
-  '................',
-  '.....55555......',
-  '...553333355....',
-  '..53355555335...',
-  '..53557775535...',
-  '.5535733375355..',
-  '.5535737375355..',
-  '.5535733375355..',
-  '..53557775535...',
-  '..53355555335...',
-  '...553333355....',
-  '.....55555......',
-  '................',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_ATTACK_1 = parseFrame([
-  '.....55555......',
-  '....5555555.....',
-  '....5577775.....',
-  '....5557755.....',
-  '.....55555......',
-  '...335555533....',
-  '..3335333537777.',
-  '..33.5333537777d',
-  '....5555555.....',
-  '....333.333.....',
-  '...555...555....',
-  '..5555...5555...',
-  '................',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_ATTACK_2 = parseFrame([
-  '.....55555......',
-  '....5555555.....',
-  '....5577775.....',
-  '....5557755.....',
-  '.....55555......',
-  '...335555533.ee.',
-  '..33353335377ddf',
-  '..33.53335377ddf',
-  '....5555555..ee.',
-  '....333.333.....',
-  '...555...555....',
-  '..5555...5555...',
-  '................',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_SMASH_1 = parseFrame([
-  '.....55555......',
-  '....5555555.....',
-  '....5577775.....',
-  '....5557755.....',
-  '.....55555..ee..',
-  '...33555553edde.',
-  '..3335333537dfe.',
-  '..33.5333537dde.',
-  '....5555555.ee..',
-  '....333.333.....',
-  '...555...555....',
-  '..5555...5555...',
-  '................',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_SMASH_2 = parseFrame([
-  '.....55555......',
-  '....5555555.....',
-  '....5577775.....',
-  '....5557755.eee.',
-  '.....55555.edffe',
-  '...33555553dffff',
-  '..3335333537dfff',
-  '..33.5333537edfe',
-  '....5555555.eee.',
-  '....333.333.....',
-  '...555...555....',
-  '..5555...5555...',
-  '................',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_HURT_1 = parseFrame([
-  '................',
-  '...55555........',
-  '..5555555.......',
-  '..5577775.......',
-  '..5557755.......',
-  '.335555533......',
-  '3335333533.777..',
-  '...533353..777..',
-  '..5555555.......',
-  '..333..333......',
-  '.5555...5555....',
-  '................',
-  '................',
-  '................',
-  '................',
-  '................',
-]);
-
-const NES_CHART: PixelChart = {
-  idle: makeClip([NES_IDLE_1, NES_IDLE_2], 18),
-  walk: makeClip([NES_WALK_1, NES_WALK_2, NES_WALK_3, NES_WALK_2], 8),
-  jump: makeClip([NES_JUMP_1, NES_JUMP_2], 4),
-  attack: makeClip([NES_ATTACK_1, NES_ATTACK_2], 6),
-  smash: makeClip([NES_SMASH_1, NES_SMASH_2], 8),
-  special: makeClip([NES_ATTACK_1, NES_ATTACK_2], 6),
-  hurt: makeClip([NES_HURT_1], 10),
+const SAMUS_POSES: Record<AnimState, readonly SamusPose[]> = {
+  idle: [
+    { mode: 'stand', phase: 0 },
+    { mode: 'stand', phase: 1 },
+  ],
+  walk: [
+    { mode: 'run', phase: 0 },
+    { mode: 'run', phase: 1 },
+    { mode: 'run', phase: 2 },
+    { mode: 'run', phase: 3 },
+  ],
+  jump: [
+    { mode: 'somersault', phase: 0 },
+    { mode: 'somersault', phase: 1 },
+    { mode: 'somersault', phase: 2 },
+    { mode: 'somersault', phase: 3 },
+  ],
+  attack: [
+    { mode: 'beam', phase: 0 },
+    { mode: 'beam', phase: 1 },
+  ],
+  smash: [
+    { mode: 'smash', phase: 0 },
+    { mode: 'smash', phase: 1 },
+  ],
+  special: [
+    { mode: 'aimUp', phase: 0 },
+    { mode: 'morph', phase: 1 },
+  ],
+  hurt: [
+    { mode: 'shatter', phase: 0 },
+  ],
 };
 
-const NES_PALETTES: PalettePreset[] = [
-  {
-    name: 'Metroid NES Power Suit',
-    colors: [
-      '', '#000000', '#FCA044', '#FCA044', '#C84C0C', '#D82800', '#00A844',
-      '#00A844', '#FCA044', '#881400', '#FCFCFC', '#BCBCBC', '#000000',
-      '#FCA044', '#FCFCFC', '#FFFFFF',
-    ],
-  },
-  {
-    name: 'Metroid NES Varia Pink',
-    colors: [
-      '', '#000000', '#F8B8F8', '#F8B8F8', '#D858F8', '#F85898', '#00A844',
-      '#00A844', '#F8B8F8', '#A81058', '#FCFCFC', '#BCBCBC', '#000000',
-      '#F878B8', '#FCFCFC', '#FFFFFF',
-    ],
-  },
-  {
-    name: 'Justin Bailey Green',
-    colors: [
-      '', '#000000', '#FCA044', '#00A800', '#006800', '#F85898', '#00A800',
-      '#58F898', '#FCA044', '#A81058', '#FCFCFC', '#BCBCBC', '#000000',
-      '#58F898', '#FCFCFC', '#FFFFFF',
-    ],
-  },
-  {
-    name: 'Ice Beam NES',
-    colors: [
-      '', '#000000', '#B8F8F8', '#3CBCFC', '#0070EC', '#0058F8', '#FCFCFC',
-      '#B8F8F8', '#3CBCFC', '#0028A8', '#FCFCFC', '#B8F8F8', '#000000',
-      '#3CBCFC', '#FFFFFF', '#FFFFFF',
-    ],
-  },
+const SAMUS_TICKS: Record<AnimState, number> = {
+  idle: 22,
+  walk: 7,
+  jump: 5,
+  attack: 6,
+  smash: 7,
+  special: 8,
+  hurt: 12,
+};
+
+function drawSamusHelmet(canvas: PixelSpriteCanvas, hx: number, hy: number): void {
+  canvas.fillEllipse(hx, hy, 4.0, 3.6, 5);
+  canvas.fillRect(hx - 3, hy + 1, 6, 2, 5);
+  canvas.fillRect(hx + 1, hy - 1, 3, 2, 7);
+  canvas.plot(hx + 2, hy - 1, 15);
+  canvas.plot(hx - 1, hy - 3, 3);
+}
+
+const SAMUS_LEG_STRIDE: ReadonlyArray<{ front: number; back: number }> = [
+  { front: 2, back: 3 },
+  { front: 0, back: 1 },
+  { front: -2, back: -2 },
+  { front: 0, back: 1 },
 ];
 
-// ── AUTHENTIC 16-BIT SUPER METROID VARIA SUIT (SNES SHADED SPRITE CHART) ──
-const SNES_IDLE_1 = parseFrame([
-  '....111111......',
-  '...15555991.....',
-  '...155777f1.....',
-  '...15557791.....',
-  '....155591......',
-  '.111335553311...',
-  '13733455543731..',
-  '134313344316661.',
-  '.11113344316a61.',
-  '...15559991111..',
-  '...133413341....',
-  '...133413341....',
-  '..15591.15591...',
-  '..15591.15591...',
-  '.155591.155591..',
-  '.111111.111111..',
-]);
+function drawSamusStandingLegs(canvas: PixelSpriteCanvas, cx: number, hipY: number, phase: number): void {
+  const isStep = phase === 1 || phase === 3;
+  const stride = SAMUS_LEG_STRIDE[phase % SAMUS_LEG_STRIDE.length];
+  const frontX = cx + stride.front;
+  const backX = cx - stride.back;
+  const liftFront = phase === 0 ? -2 : 0;
+  const liftBack = phase === 2 ? -2 : 0;
 
-const SNES_IDLE_2 = parseFrame([
-  '................',
-  '....111111......',
-  '...15555991.....',
-  '...155777f1.....',
-  '...15557791.....',
-  '.111335553311...',
-  '13733455543731..',
-  '134313344316661.',
-  '.11113344316a61.',
-  '...15559991111..',
-  '...133413341....',
-  '..15591.15591...',
-  '..15591.15591...',
-  '.155591.155591..',
-  '.111111.111111..',
-  '................',
-]);
+  canvas.drawLine(cx - 1, hipY, backX - 1, hipY + 5 + liftBack, 3, 1.3);
+  canvas.drawLine(backX - 1, hipY + 5 + liftBack, backX - 2, hipY + 9 + liftBack, 5, 1.3);
+  canvas.fillRect(backX - 3, hipY + 9 + liftBack, 4, 2, 5);
 
-const SNES_WALK_1 = parseFrame([
-  '....111111......',
-  '...15555991.....',
-  '...155777f1.....',
-  '...15557791.....',
-  '....155591......',
-  '.111335553311...',
-  '137334555437661.',
-  '.11113344316a61.',
-  '...15559991111..',
-  '..13341..13341..',
-  '.13341....13341.',
-  '.15591....15591.',
-  '155591.....1591.',
-  '111111.....1111.',
-  '................',
-  '................',
-]);
+  const kneeX = isStep ? cx + 1 : frontX + 2;
+  canvas.drawLine(cx + 1, hipY, kneeX, hipY + 4 + liftFront, 3, 1.3);
+  canvas.drawLine(kneeX, hipY + 4 + liftFront, frontX + 1, hipY + 9 + liftFront, 5, 1.3);
+  canvas.fillRect(frontX, hipY + 9 + liftFront, 4, 2, 5);
+}
 
-const SNES_WALK_2 = parseFrame([
-  '....111111......',
-  '...15555991.....',
-  '...155777f1.....',
-  '...15557791.....',
-  '....155591......',
-  '.111335553311...',
-  '137334555437661.',
-  '.11113344316a61.',
-  '...15559991111..',
-  '...133413341....',
-  '...133413341....',
-  '...155915591....',
-  '..15559155591...',
-  '..11111111111...',
-  '................',
-  '................',
-]);
+function drawSamusSomersault(canvas: PixelSpriteCanvas, phase: number): void {
+  const cx = 16;
+  const cy = 18;
+  const isHoriz = phase % 2 === 0;
+  const rx = isHoriz ? 6.8 : 5.2;
+  const ry = isHoriz ? 5.2 : 6.8;
 
-const SNES_WALK_3 = parseFrame([
-  '....111111......',
-  '...15555991.....',
-  '...155777f1.....',
-  '...15557791.....',
-  '....155591......',
-  '.111335553311...',
-  '137334555437661.',
-  '.11113344316a61.',
-  '...15559991111..',
-  '...13341..13341.',
-  '..13341....13341',
-  '..15591....15591',
-  '..15591...155591',
-  '..11111...111111',
-  '................',
-  '................',
-]);
+  canvas.fillEllipse(cx, cy, rx, ry, 3);
+  canvas.drawArc(cx, cy, rx - 1.0, ry - 1.0, phase * 90, phase * 90 + 160, 5, 1.2);
+  canvas.drawArc(cx, cy, rx - 2.0, ry - 2.0, phase * 90 + 180, phase * 90 + 300, 7, 0.9);
+  canvas.drawArc(cx, cy, rx + 1.6, ry + 1.6, phase * 90 - 40, phase * 90 + 70, 14, 0.5);
+  canvas.plot(cx + (isHoriz ? 4 : 0), cy + (isHoriz ? 0 : -4), 15);
+}
 
-const SNES_ATTACK_1 = parseFrame([
-  '....111111......',
-  '...15555991.....',
-  '...155777f1.....',
-  '...15557791.....',
-  '....155591......',
-  '.111335553311...',
-  '1373345554366661',
-  '134313344316a66d',
-  '...155599911111.',
-  '...133413341....',
-  '..15591.15591...',
-  '.155591.155591..',
-  '.111111.111111..',
-  '................',
-  '................',
-  '................',
-]);
+function drawSamusMorphBall(canvas: PixelSpriteCanvas, phase: number): void {
+  const cx = 16;
+  const cy = 22;
+  canvas.fillEllipse(cx, cy, 5.8, 5.8, 3);
+  canvas.drawArc(cx, cy, 3.8, 3.8, phase * 60, phase * 60 + 130, 5, 1.0);
+  canvas.drawArc(cx, cy, 3.6, 3.6, phase * 60 + 180, phase * 60 + 280, 7, 0.8);
+  canvas.plot(cx - 2, cy - 2, 15);
+}
 
-const SNES_ATTACK_2 = parseFrame([
-  '....111111......',
-  '...15555991.....',
-  '...155777f1.....',
-  '...15557791.....',
-  '....155591......',
-  '.11133555331.ee.',
-  '1373345554366ddf',
-  '134313344316addf',
-  '...155599911.ee.',
-  '...133413341....',
-  '..15591.15591...',
-  '.155591.155591..',
-  '.111111.111111..',
-  '................',
-  '................',
-  '................',
-]);
+function drawSamusShatter(canvas: PixelSpriteCanvas): void {
+  const cx = 15;
+  const cy = 17;
+  drawSamusHelmet(canvas, cx - 2, cy - 8);
+  canvas.fillRoundedRect(cx - 3, cy - 3, 6, 8, 3);
+  canvas.fillRect(cx - 5, cy - 4, 3, 3, 5);
+  canvas.fillRect(cx + 3, cy - 2, 4, 3, 7);
+  canvas.drawLine(cx - 1, cy + 5, cx - 5, cy + 10, 5, 1.1);
+  canvas.drawLine(cx + 2, cy + 5, cx + 6, cy + 9, 5, 1.1);
 
-const SNES_CHART: PixelChart = {
-  idle: makeClip([SNES_IDLE_1, SNES_IDLE_2], 18),
-  walk: makeClip([SNES_WALK_1, SNES_WALK_2, SNES_WALK_3, SNES_WALK_2], 8),
-  jump: makeClip([NES_JUMP_1, NES_JUMP_2], 4),
-  attack: makeClip([SNES_ATTACK_1, SNES_ATTACK_2], 6),
-  smash: makeClip([NES_SMASH_1, NES_SMASH_2], 8),
-  special: makeClip([SNES_ATTACK_1, SNES_ATTACK_2], 6),
-  hurt: makeClip([NES_HURT_1], 10),
-};
+  const sparks: ReadonlyArray<[number, number, number]> = [
+    [cx - 8, cy - 6, 5],
+    [cx + 8, cy - 7, 7],
+    [cx - 9, cy + 2, 14],
+    [cx + 9, cy + 1, 5],
+    [cx + 6, cy - 11, 14],
+  ];
+  for (const [sx, sy, col] of sparks) {
+    canvas.fillRect(sx, sy, 2, 2, col);
+  }
+}
 
-const SNES_PALETTES: PalettePreset[] = [
+function renderSamus16BitFrame(pose: SamusPose): IndexedFrame {
+  const canvas = new PixelSpriteCanvas(32, 32);
+
+  if (pose.mode === 'somersault') {
+    drawSamusSomersault(canvas, pose.phase);
+    canvas.applyAutoOutline(1, [13, 14, 15]);
+    return canvas.toFrame();
+  }
+  if (pose.mode === 'morph') {
+    drawSamusMorphBall(canvas, pose.phase);
+    canvas.applyAutoOutline(1, [13, 14, 15]);
+    return canvas.toFrame();
+  }
+  if (pose.mode === 'shatter') {
+    drawSamusShatter(canvas);
+    canvas.applyAutoOutline(1, [13, 14, 15]);
+    return canvas.toFrame();
+  }
+
+  const isRunning = pose.mode === 'run';
+  const isAimUp = pose.mode === 'aimUp';
+  const isBeam = pose.mode === 'beam';
+  const isSmash = pose.mode === 'smash';
+  const bobY = pose.mode === 'stand' && pose.phase === 1 ? 1 : 0;
+  const cx = isSmash && pose.phase === 1 ? 14 : 13;
+  const hy = 7 + bobY;
+  const ty = 12 + bobY;
+
+  if (isRunning) {
+    drawSamusStandingLegs(canvas, cx, ty + 7, pose.phase);
+  } else {
+    drawSamusStandingLegs(canvas, cx, ty + 7, 1);
+  }
+
+  canvas.fillRoundedRect(cx - 3, ty, 7, 8, 3);
+  canvas.fillRect(cx - 2, ty + 1, 5, 3, 5);
+  canvas.fillRect(cx - 3, ty + 6, 7, 2, 5);
+
+  canvas.fillEllipse(cx - 3, ty + 1, 2.8, 2.5, 5);
+  canvas.fillEllipse(cx + 3, ty + 1, 2.8, 2.5, 5);
+  canvas.plot(cx - 3, ty, 3);
+  canvas.plot(cx + 3, ty, 3);
+
+  drawSamusHelmet(canvas, cx, hy);
+
+  if (isAimUp) {
+    canvas.fillRect(cx + 1, hy - 6, 3, 7, 7);
+    canvas.fillRect(cx + 1, hy - 7, 3, 2, 6);
+    canvas.fillEllipse(cx + 2, hy - 9, 2.0, 2.0, 14);
+    canvas.plot(cx + 2, hy - 9, 15);
+  } else {
+    const cannonLen = isSmash ? 8 : 6;
+    canvas.fillRect(cx + 3, ty + 1, cannonLen, 3, 7);
+    canvas.fillRect(cx + 3 + cannonLen - 2, ty + 1, 2, 3, 6);
+    canvas.plot(cx + 5, ty + 1, 10);
+  }
+
+  if (isBeam) {
+    const shotX = pose.phase === 0 ? cx + 11 : cx + 15;
+    canvas.fillEllipse(shotX, ty + 2, 2.1, 2.1, 5);
+    canvas.plot(shotX, ty + 2, 14);
+    canvas.plot(shotX + 2, ty + 2, 15);
+  }
+
+  if (isSmash) {
+    const blastX = cx + 13;
+    const blastR = pose.phase === 0 ? 3.2 : 4.6;
+    canvas.fillEllipse(blastX, ty + 2, blastR, blastR, 13);
+    canvas.fillEllipse(blastX, ty + 2, blastR - 1.5, blastR - 1.5, 14);
+    canvas.plot(blastX, ty + 2, 15);
+  }
+
+  const shades: readonly ShadePair[] = [
+    { base: 3, shadow: 4 },
+    { base: 5, shadow: 9 },
+    { base: 7, shadow: 6 },
+  ];
+  canvas.applyCelShading(shades);
+  canvas.applyAutoOutline(1, [13, 14, 15]);
+  return canvas.toFrame();
+}
+
+const SAMUS_DUAL_ERA: { snesChart: PixelChart; nesChart: PixelChart } =
+  buildDualEraSpriteCharts(SAMUS_POSES, SAMUS_TICKS, renderSamus16BitFrame, {
+    width: 16,
+    height: 16,
+  });
+
+const SAMUS_PALETTES: PalettePreset[] = [
+  {
+    name: 'NES Power Suit',
+    colors: [
+      '', '#060810', '#FFD8B0', '#FFA074', '#D86840', '#F03818', '#207010',
+      '#48B820', '#F8D800', '#981408', '#A8F878', '#94A3B8', '#580808',
+      '#F85020', '#FEF08A', '#FFFFFF',
+    ],
+  },
   {
     name: 'Super Metroid Varia',
     colors: [
-      '', '#000000', '#F8D800', '#F88000', '#C84C0C', '#D82800', '#009868',
-      '#38F858', '#F8D800', '#901400', '#48D8A8', '#98A8B8', '#781000',
-      '#48D8FF', '#B8F0FF', '#FFFFFF',
+      '', '#060810', '#F8D800', '#F88818', '#C84C0C', '#DC2626', '#008858',
+      '#38F058', '#F8D800', '#881408', '#86EFAC', '#94A3B8', '#580808',
+      '#38BDF8', '#BAE6FD', '#FFFFFF',
     ],
   },
   {
-    name: 'Gravity Suit 16-Bit',
+    name: 'NES Varia Magenta',
     colors: [
-      '', '#000000', '#F8D800', '#9850E8', '#6828B8', '#B82888', '#009878',
-      '#38F858', '#F8D800', '#581888', '#48D8A8', '#98A8B8', '#380860',
+      '', '#0A0610', '#FBCFE8', '#A84818', '#702808', '#E028A0', '#187818',
+      '#48C828', '#F8D800', '#881060', '#86EFAC', '#94A3B8', '#480838',
+      '#F472B6', '#FEF08A', '#FFFFFF',
+    ],
+  },
+  {
+    name: 'Gravity Suit',
+    colors: [
+      '', '#080614', '#E9D5FF', '#9850E8', '#6828B8', '#C02888', '#008868',
+      '#38F868', '#F8D800', '#601050', '#86EFAC', '#94A3B8', '#380860',
       '#C084FC', '#F3E8FF', '#FFFFFF',
-    ],
-  },
-  {
-    name: 'Fusion Suit',
-    colors: [
-      '', '#000000', '#F8D800', '#38B8F8', '#0078D8', '#1848C8', '#C89800',
-      '#F8D800', '#38E868', '#183898', '#F8D800', '#7DD3FC', '#172554',
-      '#F8D800', '#FEF08A', '#FFFFFF',
     ],
   },
   {
     name: 'Dark Phazon',
     colors: [
-      '', '#000000', '#38BDF8', '#1E293B', '#0F172A', '#0F172A', '#0284C7',
-      '#22D3EE', '#38BDF8', '#09090B', '#38BDF8', '#475569', '#020617',
-      '#22D3EE', '#A5F3FC', '#FFFFFF',
+      '', '#04060C', '#38BDF8', '#1E293B', '#0F172A', '#334155', '#0284C7',
+      '#22D3EE', '#38BDF8', '#09090B', '#A5F3FC', '#64748B', '#020617',
+      '#22D3EE', '#E0F2FE', '#FFFFFF',
     ],
   },
 ];
@@ -464,12 +273,12 @@ export const SAMUS_BLUEPRINT: FighterBlueprint = {
   originTag: 'Metroid',
   archetype: 'heavy-gunner',
   archetypeLabel: 'Heavy Arm-Cannon',
-  gridSize: 16,
-  palettes: NES_PALETTES,
-  pixelChart: NES_CHART,
+  gridSize: 32,
+  palettes: SAMUS_PALETTES,
+  pixelChart: SAMUS_DUAL_ERA.snesChart,
   eraPacks: {
-    NES: { pixelChart: NES_CHART, palettes: NES_PALETTES },
-    SNES_SEGA: { pixelChart: SNES_CHART, palettes: SNES_PALETTES },
+    NES: { pixelChart: SAMUS_DUAL_ERA.nesChart, palettes: buildNesPalettes(SAMUS_PALETTES) },
+    SNES_SEGA: { pixelChart: SAMUS_DUAL_ERA.snesChart, palettes: SAMUS_PALETTES },
   },
   stats: {
     weight: 112,

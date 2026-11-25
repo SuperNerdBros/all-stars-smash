@@ -3,16 +3,17 @@
 import React, { useState } from 'react';
 import {
   ArrowLeft,
-  ChevronDown,
   ImagePlus,
   Paintbrush,
   RotateCcw,
   Swords,
+  Volume2,
 } from 'lucide-react';
 import type { FighterBlueprint, GraphicsEra } from '../../types/fighter';
 import type { CpuDifficulty, MatchConfig } from '../../types/protocol';
 import { chiptuneAudio } from '../../io/chiptuneAudio';
 import { resolveFighterForEra } from '../../roster/eraResolver';
+import { BattleModeDropdown } from '../molecules/battleModeDropdown';
 import { FighterTile, RandomFighterTile } from '../molecules/fighterTile';
 import { PlayerSlotCard } from '../molecules/playerSlotCard';
 
@@ -24,7 +25,11 @@ export interface CharacterSelectProps {
   onOpenStageSelect: () => void;
   onOpenPixelForge: (fighterId: string) => void;
   onOpenPngImporter: () => void;
+  onOpenSoundTest?: () => void;
   onResetRoster: () => void;
+  onOnlineBattle: () => void;
+  onHostBattle: () => void;
+  onJoinRoom: (code: string) => void;
 }
 
 export function CharacterSelect(props: CharacterSelectProps): React.ReactElement {
@@ -36,7 +41,11 @@ export function CharacterSelect(props: CharacterSelectProps): React.ReactElement
     onOpenStageSelect,
     onOpenPixelForge,
     onOpenPngImporter,
+    onOpenSoundTest,
     onResetRoster,
+    onOnlineBattle,
+    onHostBattle,
+    onJoinRoom,
   } = props;
 
   const [activeSlot, setActiveSlot] = useState<0 | 1>(0);
@@ -80,16 +89,17 @@ export function CharacterSelect(props: CharacterSelectProps): React.ReactElement
     onUpdateMatchConfig({ ...matchConfig, players: nextPlayers });
   };
 
-  const handleToggleP2Control = () => {
-    chiptuneAudio.playMenuTick();
+  const handleSetP2Control = (controlType: 'cpu' | 'human') => {
     const nextPlayers: MatchConfig['players'] = [
       { ...p1Config },
-      {
-        ...p2Config,
-        controlType: p2Config.controlType === 'cpu' ? 'human' : 'cpu',
-      },
+      { ...p2Config, controlType },
     ];
     onUpdateMatchConfig({ ...matchConfig, players: nextPlayers });
+  };
+
+  const handleToggleP2Control = () => {
+    chiptuneAudio.playMenuTick();
+    handleSetP2Control(p2Config.controlType === 'cpu' ? 'human' : 'cpu');
   };
 
   const handleSetCpuDifficulty = (diff: CpuDifficulty) => {
@@ -108,7 +118,8 @@ export function CharacterSelect(props: CharacterSelectProps): React.ReactElement
 
   const handleSetEra = (era: GraphicsEra) => {
     if (era === graphicsEra) return;
-    chiptuneAudio.playMenuConfirm();
+    chiptuneAudio.setEraProfile(era);
+    chiptuneAudio.playEraSwap();
     onUpdateMatchConfig({ ...matchConfig, graphicsEra: era });
   };
 
@@ -140,7 +151,7 @@ export function CharacterSelect(props: CharacterSelectProps): React.ReactElement
                 {
                   type: 'button',
                   onClick: () => {
-                    chiptuneAudio.playMenuTick();
+                    chiptuneAudio.playMenuBack();
                     onBackToTitle();
                   },
                   title: 'Return to Title Screen',
@@ -175,6 +186,23 @@ export function CharacterSelect(props: CharacterSelectProps): React.ReactElement
             React.createElement(ImagePlus, { className: 'w-3.5 h-3.5 text-[#38BDF8]' }),
             React.createElement('span', { className: 'hidden sm:inline' }, 'Import'),
           ),
+          onOpenSoundTest
+            ? React.createElement(
+                'button',
+                {
+                  type: 'button',
+                  onClick: () => {
+                    chiptuneAudio.playMenuConfirm();
+                    onOpenSoundTest();
+                  },
+                  title: 'Open Sound Test & SFX Mapper',
+                  className:
+                    'inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#991B1B] hover:bg-[#7F1D1D] border-2 border-black text-xs font-bold text-white cursor-pointer whitespace-nowrap',
+                },
+                React.createElement(Volume2, { className: 'w-3.5 h-3.5 text-[#4ADE80]' }),
+                React.createElement('span', { className: 'hidden sm:inline' }, 'SFX'),
+              )
+            : null,
           roster.some((f) => f.isCustom)
             ? React.createElement(
                 'button',
@@ -190,26 +218,15 @@ export function CharacterSelect(props: CharacterSelectProps): React.ReactElement
             : null,
         ),
 
-        // Slanted Yellow Smash Mode Banner (Click to toggle Solo Battle vs 2P VS Battle)
-        React.createElement(
-          'button',
-          {
-            type: 'button',
-            onClick: handleToggleP2Control,
-            title: 'Click to switch Solo Battle (CPU) / 2P VS Battle',
-            className:
-              'relative -skew-x-12 bg-[#FACC15] hover:bg-[#FDE047] border-[3px] border-black px-5 sm:px-7 py-1 text-black shadow-md cursor-pointer transition-colors',
-          },
-          React.createElement(
-            'span',
-            {
-              className:
-                'skew-x-12 flex items-center gap-2 font-display font-black text-sm sm:text-base tracking-tight whitespace-nowrap',
-            },
-            React.createElement('span', null, isSolo ? 'Solo Battle' : 'VS Battle'),
-            React.createElement(ChevronDown, { className: 'w-4 h-4 stroke-[3]' }),
-          ),
-        ),
+        // Slanted Yellow Smash Mode Dropdown (Solo, VS Battle, Online Battle, Host Battle, Join Battle)
+        React.createElement(BattleModeDropdown, {
+          isSolo,
+          onSelectSolo: () => handleSetP2Control('cpu'),
+          onSelectVs: () => handleSetP2Control('human'),
+          onOnlineBattle,
+          onHostBattle,
+          onJoinRoom,
+        }),
       ),
 
       // Center-Right: NES 8-BIT <-> SNES/SEGA 16-BIT ERA TOGGLE + STOCKS + READY TO FIGHT

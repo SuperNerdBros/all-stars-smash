@@ -3,6 +3,7 @@ import { MARIO_BLUEPRINT } from './fighters/mario';
 import { DONKEY_KONG_BLUEPRINT } from './fighters/donkeyKong';
 import { LINK_BLUEPRINT } from './fighters/link';
 import { SAMUS_BLUEPRINT } from './fighters/samus';
+import { ZERO_SUIT_SAMUS_BLUEPRINT } from './fighters/zeroSuitSamus';
 import { KIRBY_BLUEPRINT } from './fighters/kirby';
 import { LUIGI_BLUEPRINT } from './fighters/luigi';
 import { BOWSER_BLUEPRINT } from './fighters/bowser';
@@ -18,6 +19,7 @@ import { CRYSTAL_6_FIGHTERS } from './fighters/crystalSix';
 import { NINTENDO_ROYALTY_FIGHTERS } from './fighters/nintendoRoyalty';
 import { HYRULE_LEGENDS_FIGHTERS } from './fighters/hyruleLegends';
 import { NINTENDO_CLASSICS_FIGHTERS } from './fighters/nintendoClassics';
+import { EARTHBOUND_PARTY_FIGHTERS } from './fighters/earthboundCast';
 import { NINTENDO_DEEP_CUTS_FIGHTERS } from './fighters/nintendoDeepCuts';
 import { SEGA_LEGENDS_FIGHTERS } from './fighters/segaLegends';
 import { ARCADE_LEGENDS_FIGHTERS } from './fighters/arcadeLegends';
@@ -46,6 +48,7 @@ export const BUILTIN_FIGHTERS: readonly FighterBlueprint[] = [
   DONKEY_KONG_BLUEPRINT,
   LINK_BLUEPRINT,
   SAMUS_BLUEPRINT,
+  ZERO_SUIT_SAMUS_BLUEPRINT,
   KIRBY_BLUEPRINT,
   LUIGI_BLUEPRINT,
   BOWSER_BLUEPRINT,
@@ -61,6 +64,7 @@ export const BUILTIN_FIGHTERS: readonly FighterBlueprint[] = [
   ...NINTENDO_ROYALTY_FIGHTERS,
   ...HYRULE_LEGENDS_FIGHTERS,
   ...NINTENDO_CLASSICS_FIGHTERS,
+  ...EARTHBOUND_PARTY_FIGHTERS,
   ...NINTENDO_DEEP_CUTS_FIGHTERS,
   ...SEGA_LEGENDS_FIGHTERS,
   ...ARCADE_LEGENDS_FIGHTERS,

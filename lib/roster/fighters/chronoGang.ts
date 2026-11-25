@@ -1,77 +1,16 @@
 import type { FighterBlueprint } from '../../types/fighter';
 import type { PalettePreset } from '../../types/palette';
-import {
-  buildNesDemakeChart,
-  buildNesPalettes,
-  buildSnesRpgChart,
-} from '../rpgSpriteBuilder';
-
-// ══════════════════════════════════════════════════════════════════════════════
-// 1. SPIKY TIME (Crono — 24x24 SNES High-Res Sprite + 16x16 NES 8-Bit Pack)
-// ══════════════════════════════════════════════════════════════════════════════
-const SPIKY_TIME_SNES = buildSnesRpgChart({
-  fxStyle: 'slash',
-  snesIdle: [
-    '......1..11..1..........',
-    '.....1c11cc11c1.........',
-    '....1cccccccccc1........',
-    '...1cc1cccccc1cc1.......',
-    '....113333333311........',
-    '.....1221221221.........',
-    '.....1222222221.........',
-    '......12222221..........',
-    '....11aaaaaaaa11........',
-    '...1aa55555555aa1.......',
-    '..1221555665551a1.1a....',
-    '..12215555555511.1aa1...',
-    '...111555665551.1aa1....',
-    '.....13337733311ab1.....',
-    '.....1555555551121......',
-    '.....155611655111.......',
-    '.....1556116551.........',
-    '.....1555115551.........',
-    '.....1999119991.........',
-    '....199991199991........',
-    '....19991..19991........',
-    '....1111....1111........',
-    '........................',
-    '........................',
-  ],
-  snesAttack: [
-    '.......1..11..1.........',
-    '......1c11cc11c1........',
-    '.....1cccccccccc1.......',
-    '....1cc1cccccc1cc1......',
-    '.....113333333311.......',
-    '......1221221221........',
-    '......1222222221........',
-    '.......12222221....1ff..',
-    '...111aaaaaaaa1...1aaf1.',
-    '..1aaa555555551..1aaf1..',
-    '...11155566555111aaf1...',
-    '.....155555555222ab1....',
-    '.....13337733312211.....',
-    '.....155555555111.......',
-    '....15561..16551........',
-    '....15551..15551........',
-    '...19991....19991.......',
-    '...19991....19991.......',
-    '..19991......19991......',
-    '..1111........1111......',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-  ],
-});
+import { buildNesPalettes } from '../rpgSpriteBuilder';
+import { CRONO_DUAL_ERA, FROG_DUAL_ERA } from './chronoCronoFrog';
+import { MAGUS_DUAL_ERA, ROBO_DUAL_ERA } from './chronoRoboMagus';
 
 const SPIKY_TIME_PALETTES: PalettePreset[] = [
   {
     name: '1000 AD Hero',
     colors: [
-      '', '#0A0D18', '#FFD2A6', '#E11D48', '#9F1239', '#2563EB', '#1D4ED8',
-      '#FACC15', '#FB923C', '#78350F', '#F8FAFC', '#94A3B8', '#DC2626',
-      '#38BDF8', '#FEF08A', '#FFFFFF',
+      '', '#0A0810', '#FFD2A6', '#F84818', '#B82808', '#2098B8', '#105878',
+      '#F8D028', '#FF9828', '#C04018', '#F8FAFA', '#94A3B8', '#E03810',
+      '#78F8D8', '#FEF08A', '#FFFFFF',
     ],
   },
   {
@@ -108,12 +47,12 @@ export const SPIKY_TIME_BLUEPRINT: FighterBlueprint = {
   originTag: 'Chrono Trigger',
   archetype: 'sword-hero',
   archetypeLabel: 'Lightning Katana',
-  gridSize: 24,
+  gridSize: 32,
   palettes: SPIKY_TIME_PALETTES,
-  pixelChart: SPIKY_TIME_SNES,
+  pixelChart: CRONO_DUAL_ERA.snesChart,
   eraPacks: {
-    NES: { pixelChart: buildNesDemakeChart(SPIKY_TIME_SNES), palettes: buildNesPalettes(SPIKY_TIME_PALETTES) },
-    SNES_SEGA: { pixelChart: SPIKY_TIME_SNES, palettes: SPIKY_TIME_PALETTES },
+    NES: { pixelChart: CRONO_DUAL_ERA.nesChart, palettes: buildNesPalettes(SPIKY_TIME_PALETTES) },
+    SNES_SEGA: { pixelChart: CRONO_DUAL_ERA.snesChart, palettes: SPIKY_TIME_PALETTES },
   },
   stats: {
     weight: 94, runSpeed: 2.65, airSpeed: 2.2, jumpForce: 5.7, doubleJumpForce: 5.2,
@@ -151,65 +90,6 @@ export const SPIKY_TIME_BLUEPRINT: FighterBlueprint = {
     },
   },
 };
-
-// ══════════════════════════════════════════════════════════════════════════════
-// 2. SIR RIBBIT (Frog — 24x24 SNES High-Res Sprite + 16x16 NES Pack)
-// ══════════════════════════════════════════════════════════════════════════════
-const SIR_RIBBIT_SNES = buildSnesRpgChart({
-  fxStyle: 'slash',
-  snesIdle: [
-    '........................',
-    '......111...111.........',
-    '.....1a1a111a1a1........',
-    '....1333333333331.......',
-    '...133344333344331......',
-    '...133333333333331......',
-    '....1222222222221.......',
-    '...11555555555511.......',
-    '..1551777777771551.1a...',
-    '.155617787787715511aa1..',
-    '.15561777777771331aa1...',
-    '.15511333443331331b1....',
-    '..11.19997799911111.....',
-    '.....1333443331.........',
-    '.....1334114331.........',
-    '....13341..14331........',
-    '....19991..19991........',
-    '...199991..199991.......',
-    '...19991....19991.......',
-    '...1111......1111.......',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-  ],
-  snesAttack: [
-    '........................',
-    '.......111...111........',
-    '......1a1a111a1a1.......',
-    '.....1333333333331......',
-    '....133344333344331.....',
-    '....133333333333331.....',
-    '.....1222222222221..1ff.',
-    '..111555555555511..1aaf1',
-    '.155517777777713311aaf1.',
-    '.15561778778771333aab1..',
-    '..1111777777771111111...',
-    '.....1999779991.........',
-    '....1333443331..........',
-    '....13341..14331........',
-    '...19991....19991.......',
-    '..199991....199991......',
-    '..11111......11111......',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-  ],
-});
 
 const SIR_RIBBIT_PALETTES: PalettePreset[] = [
   {
@@ -254,12 +134,12 @@ export const SIR_RIBBIT_BLUEPRINT: FighterBlueprint = {
   originTag: 'Chrono Trigger',
   archetype: 'sword-hero',
   archetypeLabel: 'Amphibian Blade',
-  gridSize: 24,
+  gridSize: 32,
   palettes: SIR_RIBBIT_PALETTES,
-  pixelChart: SIR_RIBBIT_SNES,
+  pixelChart: FROG_DUAL_ERA.snesChart,
   eraPacks: {
-    NES: { pixelChart: buildNesDemakeChart(SIR_RIBBIT_SNES), palettes: buildNesPalettes(SIR_RIBBIT_PALETTES) },
-    SNES_SEGA: { pixelChart: SIR_RIBBIT_SNES, palettes: SIR_RIBBIT_PALETTES },
+    NES: { pixelChart: FROG_DUAL_ERA.nesChart, palettes: buildNesPalettes(SIR_RIBBIT_PALETTES) },
+    SNES_SEGA: { pixelChart: FROG_DUAL_ERA.snesChart, palettes: SIR_RIBBIT_PALETTES },
   },
   stats: {
     weight: 102, runSpeed: 2.35, airSpeed: 2.1, jumpForce: 6.1, doubleJumpForce: 5.6,
@@ -297,65 +177,6 @@ export const SIR_RIBBIT_BLUEPRINT: FighterBlueprint = {
     },
   },
 };
-
-// ══════════════════════════════════════════════════════════════════════════════
-// 3. TIN CAN (Robo — 24x24 SNES High-Res Sprite + 16x16 NES Pack)
-// ══════════════════════════════════════════════════════════════════════════════
-const TIN_CAN_SNES = buildSnesRpgChart({
-  fxStyle: 'beam',
-  snesIdle: [
-    '........................',
-    '........111111..........',
-    '.......13333331.........',
-    '......1334334331........',
-    '.....111dddddd111.......',
-    '.....1b1dffffd1b1.......',
-    '.....111dddddd111.......',
-    '....11133344333111......',
-    '..113313333333313311....',
-    '.13344133a77a33144331...',
-    '.133331337dd733133331...',
-    '.14433133a77a33133441...',
-    '.1bb11133344333111bb1...',
-    '.1ab1.1444444441.1ba1...',
-    '..11..1bb1111bb1..11....',
-    '.....13331..13331.......',
-    '.....13341..14331.......',
-    '....144441..144441......',
-    '...1999991..1999991.....',
-    '...199b991..199b991.....',
-    '...1111111..1111111.....',
-    '........................',
-    '........................',
-    '........................',
-  ],
-  snesAttack: [
-    '........................',
-    '........111111..........',
-    '.......13333331.........',
-    '......1334334331........',
-    '.....111dddddd111.......',
-    '.....1b1dffffd1b1.......',
-    '.....111dddddd111.......',
-    '....11133344333111......',
-    '...1331333333331331111..',
-    '..1344133a77a3313333ab1.',
-    '..13331337dd73314444ab1.',
-    '...111133a77a331111111..',
-    '......1333443331........',
-    '.....14444444441........',
-    '.....1bb11..11bb1.......',
-    '....13331....13331......',
-    '....13341....14331......',
-    '...199991....199991.....',
-    '...199b91....199b91.....',
-    '...111111....111111.....',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-  ],
-});
 
 const TIN_CAN_PALETTES: PalettePreset[] = [
   {
@@ -400,12 +221,12 @@ export const TIN_CAN_BLUEPRINT: FighterBlueprint = {
   originTag: 'Chrono Trigger',
   archetype: 'heavy-gunner',
   archetypeLabel: 'Rocket Punch Mech',
-  gridSize: 24,
+  gridSize: 32,
   palettes: TIN_CAN_PALETTES,
-  pixelChart: TIN_CAN_SNES,
+  pixelChart: ROBO_DUAL_ERA.snesChart,
   eraPacks: {
-    NES: { pixelChart: buildNesDemakeChart(TIN_CAN_SNES), palettes: buildNesPalettes(TIN_CAN_PALETTES) },
-    SNES_SEGA: { pixelChart: TIN_CAN_SNES, palettes: TIN_CAN_PALETTES },
+    NES: { pixelChart: ROBO_DUAL_ERA.nesChart, palettes: buildNesPalettes(TIN_CAN_PALETTES) },
+    SNES_SEGA: { pixelChart: ROBO_DUAL_ERA.snesChart, palettes: TIN_CAN_PALETTES },
   },
   stats: {
     weight: 122, runSpeed: 2.05, airSpeed: 1.75, jumpForce: 5.3, doubleJumpForce: 4.9,
@@ -443,65 +264,6 @@ export const TIN_CAN_BLUEPRINT: FighterBlueprint = {
     },
   },
 };
-
-// ══════════════════════════════════════════════════════════════════════════════
-// 4. CAPE LORD (Magus — 24x24 SNES High-Res Sprite + 16x16 NES Pack)
-// ══════════════════════════════════════════════════════════════════════════════
-const CAPE_LORD_SNES = buildSnesRpgChart({
-  fxStyle: 'orb',
-  snesIdle: [
-    '......1111111...........',
-    '.....1ccccccc1..........',
-    '....1cc1ccc1cc1.........',
-    '...1cc2222222cc1....1a..',
-    '...1c212222122c1...1aa1.',
-    '...1c222222222c1..1aa31.',
-    '..1c11222222211c1.1a31..',
-    '..115511777115511.1b1...',
-    '.1555615555516551.1b1...',
-    '.1556155333551651121....',
-    '.15561553435516511b1....',
-    '155615555555551651b1....',
-    '155615566666551651b1....',
-    '155615555555551651b1....',
-    '155115561116551151b1....',
-    '.11.15561.16551.11b1....',
-    '....15551.15551...11....',
-    '....19991.19991.........',
-    '...199991.199991........',
-    '...11111...11111........',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-  ],
-  snesAttack: [
-    '.......1111111..........',
-    '......1ccccccc1.........',
-    '.....1cc1ccc1cc1........',
-    '....1cc2222222cc1.......',
-    '....1c212222122c1..1aaa.',
-    '....1c222222222c1.1aa331',
-    '...1c11222222211c11a311.',
-    '..1555117771155111bb1...',
-    '.1556155555551651221....',
-    '1556155534355516511.....',
-    '155615555555551651......',
-    '155115566666551151......',
-    '.11.15561..16551........',
-    '....15551..15551........',
-    '...19991....19991.......',
-    '..199991....199991......',
-    '..11111......11111......',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-    '........................',
-  ],
-});
 
 const CAPE_LORD_PALETTES: PalettePreset[] = [
   {
@@ -546,12 +308,12 @@ export const CAPE_LORD_BLUEPRINT: FighterBlueprint = {
   originTag: 'Chrono Trigger',
   archetype: 'zoner',
   archetypeLabel: 'Scythe Dark Mage',
-  gridSize: 24,
+  gridSize: 32,
   palettes: CAPE_LORD_PALETTES,
-  pixelChart: CAPE_LORD_SNES,
+  pixelChart: MAGUS_DUAL_ERA.snesChart,
   eraPacks: {
-    NES: { pixelChart: buildNesDemakeChart(CAPE_LORD_SNES), palettes: buildNesPalettes(CAPE_LORD_PALETTES) },
-    SNES_SEGA: { pixelChart: CAPE_LORD_SNES, palettes: CAPE_LORD_PALETTES },
+    NES: { pixelChart: MAGUS_DUAL_ERA.nesChart, palettes: buildNesPalettes(CAPE_LORD_PALETTES) },
+    SNES_SEGA: { pixelChart: MAGUS_DUAL_ERA.snesChart, palettes: CAPE_LORD_PALETTES },
   },
   stats: {
     weight: 90, runSpeed: 2.55, airSpeed: 2.35, jumpForce: 5.85, doubleJumpForce: 5.4,

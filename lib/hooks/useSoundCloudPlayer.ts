@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type RefObject } from 'react';
+import { audioMixer } from '../io/audioMixer';
 
 const SOUNDCLOUD_ORIGIN = 'https://w.soundcloud.com';
 
@@ -38,15 +39,22 @@ function parseScEvent(raw: unknown): string | null {
       return null;
     }
   }
-  if (raw && typeof raw === 'object') {
+  const isObject = Boolean(raw && typeof raw === 'object');
+  if (isObject) {
     return (raw as { method?: string }).method ?? null;
   }
   return null;
 }
 
+function effectiveBgmVolume(): number {
+  const snap = audioMixer.getSnapshot();
+  return snap.bgmMuted ? 0 : snap.bgmVolume;
+}
+
 export interface SoundCloudPlayerState {
   isPlaying: boolean;
   isMuted: boolean;
+  volume: number;
   embedSrc: string;
 }
 
@@ -55,18 +63,26 @@ export function useSoundCloudPlayer(
   iframeRef: RefObject<HTMLIFrameElement | null>,
   autoStart = false,
 ) {
-  const statusRef = useRef<{ isPlaying: boolean; isMuted: boolean }>({
-    isPlaying: autoStart,
-    isMuted: false,
+  const isPlayingRef = useRef<boolean>(autoStart);
+
+  const [state, setState] = useState<SoundCloudPlayerState>(() => {
+    const snap = audioMixer.getSnapshot();
+    return {
+      isPlaying: false,
+      isMuted: snap.bgmMuted,
+      volume: snap.bgmVolume,
+      embedSrc: '',
+    };
   });
 
-  const [state, setState] = useState<SoundCloudPlayerState>(() => ({
-    isPlaying: false,
-    isMuted: false,
-    embedSrc: '',
-  }));
-
   useEffect(() => {
+    const applyMixerToWidget = () => {
+      const snap = audioMixer.getSnapshot();
+      const targetVol = snap.bgmMuted ? 0 : snap.bgmVolume;
+      postScCommand(iframeRef.current, 'setVolume', targetVol);
+      setState((prev) => ({ ...prev, isMuted: snap.bgmMuted, volume: snap.bgmVolume }));
+    };
+
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== SOUNDCLOUD_ORIGIN) return;
       const method = parseScEvent(event.data);
@@ -76,16 +92,18 @@ export function useSoundCloudPlayer(
         postScCommand(iframeRef.current, 'addEventListener', 'play');
         postScCommand(iframeRef.current, 'addEventListener', 'pause');
         postScCommand(iframeRef.current, 'addEventListener', 'finish');
-        postScCommand(iframeRef.current, 'setVolume', statusRef.current.isMuted ? 0 : 75);
-        const shouldPlayNow = statusRef.current.isPlaying && !statusRef.current.isMuted;
+        const targetVol = effectiveBgmVolume();
+        postScCommand(iframeRef.current, 'setVolume', targetVol);
+        const shouldPlayNow = isPlayingRef.current && targetVol > 0;
         if (shouldPlayNow) {
           postScCommand(iframeRef.current, 'play');
         }
       } else if (method === 'play') {
-        statusRef.current.isPlaying = true;
+        isPlayingRef.current = true;
+        postScCommand(iframeRef.current, 'setVolume', effectiveBgmVolume());
         setState((prev) => ({ ...prev, isPlaying: true }));
       } else if (method === 'pause') {
-        statusRef.current.isPlaying = false;
+        isPlayingRef.current = false;
         setState((prev) => ({ ...prev, isPlaying: false }));
       } else if (method === 'finish') {
         postScCommand(iframeRef.current, 'seekTo', 0);
@@ -93,16 +111,21 @@ export function useSoundCloudPlayer(
       }
     };
 
+    const unsubscribe = audioMixer.subscribe(applyMixerToWidget);
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('message', handleMessage);
+    };
   }, [iframeRef]);
 
   useEffect(() => {
-    if (autoStart && !statusRef.current.isMuted) {
-      statusRef.current.isPlaying = true;
+    const canAutoStart = autoStart && effectiveBgmVolume() > 0;
+    if (canAutoStart) {
+      isPlayingRef.current = true;
     }
     const timer = window.setTimeout(() => {
-      const shouldAutoPlay = (autoStart || statusRef.current.isPlaying) && !statusRef.current.isMuted;
+      const shouldAutoPlay = (autoStart || isPlayingRef.current) && effectiveBgmVolume() > 0;
       setState((prev) => ({ ...prev, embedSrc: buildEmbedSrc(trackUrl, shouldAutoPlay) }));
     }, 0);
     return () => window.clearTimeout(timer);
@@ -110,22 +133,19 @@ export function useSoundCloudPlayer(
 
   const togglePlay = () => {
     if (state.isPlaying) {
-      statusRef.current.isPlaying = false;
+      isPlayingRef.current = false;
       postScCommand(iframeRef.current, 'pause');
       setState((prev) => ({ ...prev, isPlaying: false }));
-      return;
+    } else {
+      isPlayingRef.current = true;
+      postScCommand(iframeRef.current, 'setVolume', effectiveBgmVolume());
+      postScCommand(iframeRef.current, 'play');
+      setState((prev) => ({ ...prev, isPlaying: true }));
     }
-    statusRef.current.isPlaying = true;
-    postScCommand(iframeRef.current, 'setVolume', state.isMuted ? 0 : 75);
-    postScCommand(iframeRef.current, 'play');
-    setState((prev) => ({ ...prev, isPlaying: true }));
   };
 
   const toggleMute = () => {
-    const nextMuted = !state.isMuted;
-    statusRef.current.isMuted = nextMuted;
-    setState((prev) => ({ ...prev, isMuted: nextMuted }));
-    postScCommand(iframeRef.current, 'setVolume', nextMuted ? 0 : 75);
+    audioMixer.toggleBgmMute();
   };
 
   return { state, togglePlay, toggleMute };

@@ -13,6 +13,7 @@ import {
   Shuffle,
   Sliders,
   Swords,
+  Volume2,
 } from 'lucide-react';
 import type { FighterBlueprint, GraphicsEra } from '../../types/fighter';
 import type { MatchConfig } from '../../types/protocol';
@@ -33,13 +34,14 @@ export interface TitleScreenProps {
   onJoinRoom: (code: string) => void;
   onQuickBrawl: () => void;
   onOpenPixelForge: () => void;
+  onOpenSoundTest: () => void;
   onUpdateMatchConfig: (updater: (prev: MatchConfig) => MatchConfig) => void;
   onSetEra: (era: GraphicsEra) => void;
   onToggleMusic: () => void;
   onShuffleAttract: () => void;
 }
 
-type MenuActionId = 'online' | 'join' | 'play' | 'quick' | 'forge' | 'settings' | 'controls';
+type MenuActionId = 'online' | 'join' | 'play' | 'quick' | 'forge' | 'soundTest' | 'settings' | 'controls';
 
 interface MenuItemSpec {
   id: MenuActionId;
@@ -55,6 +57,7 @@ const MENU_ITEMS: ReadonlyArray<MenuItemSpec> = [
   { id: 'play', label: 'LOCAL VERSUS', sublabel: 'Same-screen 2P or vs. CPU', accent: '#FDE047' },
   { id: 'quick', label: 'QUICK BRAWL', sublabel: 'Jump straight into this live arena', accent: '#EF4444' },
   { id: 'forge', label: 'PIXEL FORGE', sublabel: 'Sprite editor & #FF00FF importer', accent: '#38BDF8' },
+  { id: 'soundTest', label: 'SOUND TEST', sublabel: 'Audition & map all 32 arcade SFX', accent: '#10B981' },
   { id: 'settings', label: 'SETTINGS', sublabel: 'Era, stocks, CPU level & audio', accent: '#A855F7' },
   { id: 'controls', label: 'CONTROLS', sublabel: 'P1, Local 2P & 2.5D camera keys', accent: '#22C55E' },
 ];
@@ -66,6 +69,7 @@ function renderMenuIcon(id: MenuActionId): React.ReactElement {
   if (id === 'play') return React.createElement(Play, { className: 'w-5 h-5 fill-current' });
   if (id === 'quick') return React.createElement(Swords, { className: 'w-5 h-5' });
   if (id === 'forge') return React.createElement(Paintbrush, { className: 'w-5 h-5' });
+  if (id === 'soundTest') return React.createElement(Volume2, { className: 'w-5 h-5' });
   if (id === 'settings') return React.createElement(Sliders, { className: 'w-5 h-5' });
   return React.createElement(Gamepad2, { className: 'w-5 h-5' });
 }
@@ -95,6 +99,7 @@ export function TitleScreen(props: TitleScreenProps): React.ReactElement {
     onJoinRoom,
     onQuickBrawl,
     onOpenPixelForge,
+    onOpenSoundTest,
     onUpdateMatchConfig,
     onSetEra,
     onToggleMusic,
@@ -115,6 +120,7 @@ export function TitleScreen(props: TitleScreenProps): React.ReactElement {
       play: onPlay,
       quick: onQuickBrawl,
       forge: onOpenPixelForge,
+      soundTest: onOpenSoundTest,
       settings: () => setOverlayMode('settings'),
       controls: () => setOverlayMode('controls'),
     };
@@ -344,6 +350,10 @@ export function TitleScreen(props: TitleScreenProps): React.ReactElement {
           onSetEra,
           onToggleMusic,
           onShuffleStage: onShuffleAttract,
+          onOpenSoundTest: () => {
+            setOverlayMode(null);
+            onOpenSoundTest();
+          },
           onClose: () => setOverlayMode(null),
         })
       : null,
