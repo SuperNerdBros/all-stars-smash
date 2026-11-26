@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import type { FighterBlueprint, GraphicsEra } from '../types/fighter';
 import type { CameraPreset, HudSnapshot, MatchConfig } from '../types/protocol';
 import type { NetRoom } from '../net/netRoom';
@@ -194,9 +194,9 @@ export function useMatchEngine(
     runtimeRef.current.bridge?.setTargetLock(targetSlot);
   };
 
-  const setVirtualInputMask = (mask: number) => {
+  const setVirtualInputMask = useCallback((mask: number) => {
     runtimeRef.current.poller?.setVirtualP1Mask(mask);
-  };
+  }, []);
 
   return { state, selectCamera, toggleControl, restartMatch, setTargetLock, setVirtualInputMask };
 }

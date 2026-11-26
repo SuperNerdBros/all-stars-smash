@@ -20,6 +20,7 @@ export interface ActionButtonHandlers {
   onPointerUp: (e: React.PointerEvent<HTMLButtonElement>) => void;
   onPointerCancel: (e: React.PointerEvent<HTMLButtonElement>) => void;
   onLostPointerCapture: (e: React.PointerEvent<HTMLButtonElement>) => void;
+  onContextMenu: (e: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
 export interface DpadHandlers {
@@ -28,6 +29,7 @@ export interface DpadHandlers {
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void;
   onPointerCancel: (e: React.PointerEvent<HTMLDivElement>) => void;
   onLostPointerCapture: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onContextMenu: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 export interface TouchGamepadState {
@@ -49,15 +51,34 @@ function triggerSoftHaptic(): void {
   }
 }
 
+const AXIS_SECTOR_THRESHOLD = Math.sin(Math.PI / 8);
+
+function capturePointerSafely(target: Element, pointerId: number): void {
+  const supportsCapture = typeof target.setPointerCapture === 'function';
+  if (!supportsCapture) return;
+  try {
+    target.setPointerCapture(pointerId);
+  } catch {
+    return;
+  }
+}
+
+function preventContextMenu(e: React.MouseEvent): void {
+  e.preventDefault();
+}
+
 function computeDpadMaskFromOffset(dx: number, dy: number, deadzone: number): number {
-  const insideDeadzone = Math.hypot(dx, dy) < deadzone;
+  const distance = Math.hypot(dx, dy);
+  const insideDeadzone = distance < deadzone;
   if (insideDeadzone) return 0;
 
+  const normalizedX = dx / distance;
+  const normalizedY = dy / distance;
   let mask = 0;
-  const pushLeft = dx < -deadzone;
-  const pushRight = dx > deadzone;
-  const pushUp = dy < -deadzone;
-  const pushDown = dy > deadzone;
+  const pushLeft = normalizedX < -AXIS_SECTOR_THRESHOLD;
+  const pushRight = normalizedX > AXIS_SECTOR_THRESHOLD;
+  const pushUp = normalizedY < -AXIS_SECTOR_THRESHOLD;
+  const pushDown = normalizedY > AXIS_SECTOR_THRESHOLD;
   if (pushLeft) mask |= INPUT_LEFT;
   if (pushRight) mask |= INPUT_RIGHT;
   if (pushUp) mask |= INPUT_UP;
@@ -76,6 +97,9 @@ function combineMasks(masks: Map<number, number>): number {
 export function useTouchGamepadState(onMaskChange: (mask: number) => void): TouchGamepadState {
   const trackerRef = useRef<PointerTracker>({ masks: new Map(), dpadPointerId: null });
   const dpadZoneRef = useRef<HTMLDivElement | null>(null);
+  const onMaskChangeRef = useRef(onMaskChange);
+  onMaskChangeRef.current = onMaskChange;
+
   const [view, setView] = useState<TouchPadView>({
     pressedMask: 0,
     stickOffset: { x: 0, y: 0 },
@@ -87,13 +111,13 @@ export function useTouchGamepadState(onMaskChange: (mask: number) => void): Touc
     return () => {
       tracker.masks.clear();
       tracker.dpadPointerId = null;
-      onMaskChange(0);
+      onMaskChangeRef.current(0);
     };
-  }, [onMaskChange]);
+  }, []);
 
   const emitMask = (nextOffset?: StickOffset, nextDpadActive?: boolean) => {
     const pressedMask = combineMasks(trackerRef.current.masks);
-    onMaskChange(pressedMask);
+    onMaskChangeRef.current(pressedMask);
     setView((prev) => ({
       pressedMask,
       stickOffset: nextOffset ?? prev.stickOffset,
@@ -109,7 +133,7 @@ export function useTouchGamepadState(onMaskChange: (mask: number) => void): Touc
   const bindActionButton = (bitMask: number): ActionButtonHandlers => ({
     onPointerDown: (e) => {
       e.preventDefault();
-      e.currentTarget.setPointerCapture(e.pointerId);
+      capturePointerSafely(e.currentTarget, e.pointerId);
       trackerRef.current.masks.set(e.pointerId, bitMask);
       triggerSoftHaptic();
       emitMask();
@@ -120,6 +144,7 @@ export function useTouchGamepadState(onMaskChange: (mask: number) => void): Touc
     },
     onPointerCancel: (e) => releasePointer(e.pointerId),
     onLostPointerCapture: (e) => releasePointer(e.pointerId),
+    onContextMenu: preventContextMenu,
   });
 
   const updateDpadFromPointer = (clientX: number, clientY: number, pointerId: number) => {
@@ -131,7 +156,8 @@ export function useTouchGamepadState(onMaskChange: (mask: number) => void): Touc
     const maxRadius = rect.width * 0.34;
     const dist = Math.hypot(rawDx, rawDy);
     const clampRatio = dist > maxRadius ? maxRadius / dist : 1;
-    const dirMask = computeDpadMaskFromOffset(rawDx, rawDy, 12);
+    const deadzone = Math.max(8, rect.width * 0.1);
+    const dirMask = computeDpadMaskFromOffset(rawDx, rawDy, deadzone);
 
     trackerRef.current.masks.set(pointerId, dirMask);
     emitMask({ x: rawDx * clampRatio, y: rawDy * clampRatio }, true);
@@ -148,7 +174,10 @@ export function useTouchGamepadState(onMaskChange: (mask: number) => void): Touc
   const dpadHandlers: DpadHandlers = {
     onPointerDown: (e) => {
       e.preventDefault();
-      e.currentTarget.setPointerCapture(e.pointerId);
+      const activePointerId = trackerRef.current.dpadPointerId;
+      const hasOtherActivePointer = activePointerId !== null && activePointerId !== e.pointerId;
+      if (hasOtherActivePointer) return;
+      capturePointerSafely(e.currentTarget, e.pointerId);
       trackerRef.current.dpadPointerId = e.pointerId;
       triggerSoftHaptic();
       updateDpadFromPointer(e.clientX, e.clientY, e.pointerId);
@@ -165,6 +194,7 @@ export function useTouchGamepadState(onMaskChange: (mask: number) => void): Touc
     },
     onPointerCancel: (e) => releaseDpad(e.pointerId),
     onLostPointerCapture: (e) => releaseDpad(e.pointerId),
+    onContextMenu: preventContextMenu,
   };
 
   return {

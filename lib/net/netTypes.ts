@@ -52,6 +52,7 @@ export interface NetStats {
 
 export type GuestPacket =
   | { t: 'hello'; protocol: number; name: string; fighterId: string; paletteIndex: number }
+  | { t: 'pick'; fighterId: string; paletteIndex: number }
   | { t: 'in'; m: number; items: InputItem[] }
   | { t: 'desync'; m: number; frame: number }
   | { t: 'bye' };
@@ -64,5 +65,11 @@ export type HostPacket =
   | { t: 'sum'; m: number; frame: number; hash: number }
   | { t: 'state'; m: number; sync: SyncState }
   | { t: 'start'; setup: NetMatchSetup; seat: number; inputDelay: number }
-  | { t: 'roster'; names: string[]; controlTypes: PlayerControlType[] }
+  | {
+      t: 'roster';
+      names: string[];
+      controlTypes: PlayerControlType[];
+      nextFighterIds?: string[];
+      nextPaletteIndices?: number[];
+    }
   | { t: 'bye'; reason: string };

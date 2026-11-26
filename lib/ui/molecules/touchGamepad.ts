@@ -175,16 +175,16 @@ function renderDpadDisc(
       ].join(' '),
     },
     React.createElement(ChevronUp, {
-      className: `absolute top-2 w-4 h-4 sm:w-5 sm:h-5 transition-colors ${upActive ? 'text-[#FACC15]' : 'text-white/45'}`,
+      className: `pointer-events-none absolute top-2 w-4 h-4 sm:w-5 sm:h-5 transition-colors ${upActive ? 'text-[#FACC15]' : 'text-white/45'}`,
     }),
     React.createElement(ChevronDown, {
-      className: `absolute bottom-2 w-4 h-4 sm:w-5 sm:h-5 transition-colors ${downActive ? 'text-[#FACC15]' : 'text-white/45'}`,
+      className: `pointer-events-none absolute bottom-2 w-4 h-4 sm:w-5 sm:h-5 transition-colors ${downActive ? 'text-[#FACC15]' : 'text-white/45'}`,
     }),
     React.createElement(ChevronLeft, {
-      className: `absolute left-2 w-4 h-4 sm:w-5 sm:h-5 transition-colors ${leftActive ? 'text-[#FACC15]' : 'text-white/45'}`,
+      className: `pointer-events-none absolute left-2 w-4 h-4 sm:w-5 sm:h-5 transition-colors ${leftActive ? 'text-[#FACC15]' : 'text-white/45'}`,
     }),
     React.createElement(ChevronRight, {
-      className: `absolute right-2 w-4 h-4 sm:w-5 sm:h-5 transition-colors ${rightActive ? 'text-[#FACC15]' : 'text-white/45'}`,
+      className: `pointer-events-none absolute right-2 w-4 h-4 sm:w-5 sm:h-5 transition-colors ${rightActive ? 'text-[#FACC15]' : 'text-white/45'}`,
     }),
     React.createElement('div', {
       className: [

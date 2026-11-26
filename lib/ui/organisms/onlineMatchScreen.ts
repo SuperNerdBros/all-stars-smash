@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import type { FighterBlueprint, GraphicsEra } from '../../types/fighter';
 import type { MatchConfig } from '../../types/protocol';
 import { getStageById } from '../../stages/manifests';
+import { BUILTIN_FIGHTERS } from '../../roster/registry';
 import type { NetRoom, RoomView } from '../../net/netRoom';
 import { MatchViewport } from './matchViewport';
 import { OnlineRoomPanel } from './onlineRoomPanel';
@@ -58,6 +59,13 @@ export function OnlineMatchScreen(props: OnlineMatchScreenProps): React.ReactEle
     onExitToStageSelect: onLeave,
     online: room,
     seatLabels,
-    overlay: React.createElement(OnlineRoomPanel, { room, view, matchOver, onLeave }),
+    overlay: React.createElement(OnlineRoomPanel, {
+      room,
+      view,
+      roster: BUILTIN_FIGHTERS,
+      graphicsEra,
+      matchOver,
+      onLeave,
+    }),
   });
 }

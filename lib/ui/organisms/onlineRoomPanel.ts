@@ -1,16 +1,20 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Bot, Copy, LogOut, Minus, Play, Plus, User, Users, Wifi, X } from 'lucide-react';
+import { Bot, Copy, LogOut, Minus, Play, Plus, Swords, User, Users, Wifi, X } from 'lucide-react';
+import type { FighterBlueprint, GraphicsEra } from '../../types/fighter';
 import type { RoomView, NetRoom } from '../../net/netRoom';
 import type { NetStats } from '../../net/netTypes';
 import { inviteLink } from '../../net/playApi';
 import { MAX_FIGHTERS, MIN_FIGHTERS } from '../../types/protocol';
 import { chiptuneAudio } from '../../io/chiptuneAudio';
+import { OnlineFighterPicker } from '../molecules/onlineFighterPicker';
 
 export interface OnlineRoomPanelProps {
   room: NetRoom;
   view: RoomView;
+  roster: readonly FighterBlueprint[];
+  graphicsEra: GraphicsEra;
   matchOver: boolean;
   net?: NetStats;
   onLeave: () => void;
@@ -29,15 +33,40 @@ function statusLine(view: RoomView): string {
   return 'Room open: share the code. Friends take over CPU seats.';
 }
 
-function SeatRow(p: { seat: RoomView['seats'][number]; canKick: boolean; onKick: () => void }): React.ReactElement {
-  const { seat } = p;
+function findFighterName(roster: readonly FighterBlueprint[], fighterId: string): string {
+  return roster.find((fighter) => fighter.id === fighterId)?.name ?? fighterId;
+}
+
+function SeatRow(p: {
+  seat: RoomView['seats'][number];
+  roster: readonly FighterBlueprint[];
+  canKick: boolean;
+  onKick: () => void;
+}): React.ReactElement {
+  const { seat, roster } = p;
   const Icon = seat.controlType === 'cpu' ? Bot : User;
+  const currentFighterName = findFighterName(roster, seat.fighterId);
+  const hasQueuedSwap = seat.nextFighterId !== seat.fighterId;
+  const nextFighterName = hasQueuedSwap ? findFighterName(roster, seat.nextFighterId) : null;
+
   return React.createElement(
     'li',
     { className: 'flex items-center gap-2 px-2 py-1 bg-black/35 border-2', style: { borderColor: seat.isYou ? '#FACC15' : '#1F2937' } },
-    React.createElement('span', { className: 'font-mono text-[10px] text-white/50 w-6' }, `P${seat.seat + 1}`),
-    React.createElement(Icon, { className: `w-3.5 h-3.5 ${seat.controlType === 'cpu' ? 'text-white/50' : 'text-[#22C55E]'}` }),
-    React.createElement('span', { className: 'flex-1 truncate text-xs font-bold text-white' }, `${seat.name}${seat.isYou ? ' (you)' : ''}`),
+    React.createElement('span', { className: 'font-mono text-[10px] text-white/50 w-6 shrink-0' }, `P${seat.seat + 1}`),
+    React.createElement(Icon, { className: `w-3.5 h-3.5 shrink-0 ${seat.controlType === 'cpu' ? 'text-white/50' : 'text-[#22C55E]'}` }),
+    React.createElement(
+      'div',
+      { className: 'flex-1 min-w-0' },
+      React.createElement('div', { className: 'truncate text-xs font-bold text-white' }, `${seat.name}${seat.isYou ? ' (you)' : ''}`),
+      React.createElement(
+        'div',
+        { className: 'truncate text-[10px] text-white/55' },
+        currentFighterName,
+        nextFighterName
+          ? React.createElement('span', { className: 'text-[#FDE047] font-bold' }, ` -> ${nextFighterName}`)
+          : null,
+      ),
+    ),
     p.canKick
       ? React.createElement(
           'button',
@@ -45,7 +74,7 @@ function SeatRow(p: { seat: RoomView['seats'][number]; canKick: boolean; onKick:
             type: 'button',
             title: 'Kick this CPU',
             onClick: p.onKick,
-            className: 'p-0.5 bg-[#7F1D1D] hover:bg-[#B91C1C] border border-black text-white cursor-pointer',
+            className: 'p-0.5 bg-[#7F1D1D] hover:bg-[#B91C1C] border border-black text-white cursor-pointer shrink-0',
           },
           React.createElement(X, { className: 'w-3 h-3' }),
         )
@@ -55,11 +84,39 @@ function SeatRow(p: { seat: RoomView['seats'][number]; canKick: boolean; onKick:
 
 /** Floating room panel over an online match. */
 export function OnlineRoomPanel(props: OnlineRoomPanelProps): React.ReactElement {
-  const { room, view, matchOver, net, onLeave } = props;
+  const { room, view, roster, graphicsEra, matchOver, net, onLeave } = props;
   const [open, setOpen] = useState(true);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const isHost = view.role === 'host';
   const humans = view.seats.filter((s) => s.controlType === 'human').length;
+  const selectedFighterName = findFighterName(roster, view.localPick.fighterId);
+
+  const handleOpenPicker = () => {
+    chiptuneAudio.playMenuTick();
+    setPickerOpen(true);
+  };
+
+  const handleClosePicker = () => {
+    setPickerOpen(false);
+  };
+
+  const handleSelectFighter = (fighterId: string, paletteIndex: number) => {
+    room.setFighter(fighterId, paletteIndex);
+  };
+
+  const pickerOverlay = pickerOpen
+    ? React.createElement(OnlineFighterPicker, {
+        roster,
+        selectedFighterId: view.localPick.fighterId,
+        selectedPaletteIndex: view.localPick.paletteIndex,
+        graphicsEra,
+        isHost,
+        onSelect: handleSelectFighter,
+        onApplyRestart: isHost ? () => room.nextMatch() : undefined,
+        onClose: handleClosePicker,
+      })
+    : null;
 
   const copy = async () => {
     if (!view.code) return;
@@ -75,20 +132,28 @@ export function OnlineRoomPanel(props: OnlineRoomPanelProps): React.ReactElement
 
   if (!open) {
     return React.createElement(
-      'button',
-      {
-        type: 'button',
-        onClick: () => setOpen(true),
-        className: 'fixed top-16 right-3 z-20 flex items-center gap-2 px-3 py-1.5 bg-[#2563EB] border-[3px] font-display font-black uppercase text-xs text-white shadow-[4px_4px_0_#0B0B0F] cursor-pointer',
-        style: { borderColor: INK },
-      },
-      React.createElement(Users, { className: 'w-4 h-4' }),
-      `${view.code ?? '…'} · ${humans}/${view.roomSize}`,
+      React.Fragment,
+      null,
+      React.createElement(
+        'button',
+        {
+          type: 'button',
+          onClick: () => setOpen(true),
+          className: 'fixed top-16 right-3 z-20 flex items-center gap-2 px-3 py-1.5 bg-[#2563EB] border-[3px] font-display font-black uppercase text-xs text-white shadow-[4px_4px_0_#0B0B0F] cursor-pointer',
+          style: { borderColor: INK },
+        },
+        React.createElement(Users, { className: 'w-4 h-4' }),
+        `${view.code ?? '…'} · ${humans}/${view.roomSize}`,
+      ),
+      pickerOverlay,
     );
   }
 
   return React.createElement(
-    'aside',
+    React.Fragment,
+    null,
+    React.createElement(
+      'aside',
     {
       className: 'fixed top-16 right-3 z-20 w-72 max-w-[calc(100vw-24px)] bg-[#111827]/95 border-[3px] shadow-[6px_6px_0_#0B0B0F] text-white',
       style: { borderColor: INK },
@@ -164,6 +229,29 @@ export function OnlineRoomPanel(props: OnlineRoomPanelProps): React.ReactElement
         ? React.createElement('p', { className: 'text-[10px] text-[#FDE047]/80 -mt-2' }, 'New size applies next match.')
         : null,
 
+      // Local fighter switcher
+      React.createElement(
+        'div',
+        { className: 'flex items-center justify-between gap-2 px-2 py-1.5 bg-black/45 border-2', style: { borderColor: INK } },
+        React.createElement(
+          'div',
+          { className: 'min-w-0' },
+          React.createElement('div', { className: 'text-[10px] uppercase font-bold text-white/55 leading-none' }, 'Your Fighter'),
+          React.createElement('div', { className: 'truncate font-display font-black uppercase text-xs text-[#FDE047] mt-0.5' }, selectedFighterName),
+        ),
+        React.createElement(
+          'button',
+          {
+            type: 'button',
+            onClick: handleOpenPicker,
+            className: 'flex items-center gap-1 px-2 py-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] border-2 font-display font-black uppercase text-[10px] text-white cursor-pointer shrink-0',
+            style: { borderColor: INK },
+          },
+          React.createElement(Swords, { className: 'w-3 h-3' }),
+          'Change',
+        ),
+      ),
+
       // Seats
       React.createElement(
         'ul',
@@ -172,6 +260,7 @@ export function OnlineRoomPanel(props: OnlineRoomPanelProps): React.ReactElement
           React.createElement(SeatRow, {
             key: seat.seat,
             seat,
+            roster,
             canKick: isHost && seat.controlType === 'cpu' && !matchOver,
             onKick: () => room.kickCpu(seat.seat),
           }),
@@ -219,5 +308,7 @@ export function OnlineRoomPanel(props: OnlineRoomPanelProps): React.ReactElement
           )
         : null,
     ),
+    ),
+    pickerOverlay,
   );
 }

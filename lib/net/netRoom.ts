@@ -38,6 +38,8 @@ export interface SeatView {
   /** Remote human (another peer). */
   isRemote: boolean;
   fighterId: string;
+  nextFighterId: string;
+  nextPaletteIndex: number;
 }
 
 export interface RoomView {
@@ -49,6 +51,7 @@ export interface RoomView {
   seats: SeatView[];
   setup: NetMatchSetup | null;
   localSeat: number;
+  localPick: { fighterId: string; paletteIndex: number };
   error: string | null;
   /** Bumps whenever a new match starts (so React remounts the viewport for guests). */
   matchId: number;
@@ -88,12 +91,14 @@ export class NetRoom {
   private queuedStart: { setup: NetMatchSetup; sync?: SyncState; inputDelay: number } | null = null;
   /** Guest only: the last match start, so a remounted viewport can rejoin it. */
   private lastStart: { setup: NetMatchSetup; sync?: SyncState; inputDelay: number } | null = null;
+  /** Guest only: next-match fighter picks broadcast by the host. */
+  private guestNextPicks: { fighterIds: string[]; paletteIndices: number[] } | null = null;
 
   private constructor(
     private readonly deps: RoomDeps,
     role: 'host' | 'guest',
     private readonly name: string,
-    private readonly pick: { fighterId: string; paletteIndex: number },
+    private pick: { fighterId: string; paletteIndex: number },
   ) {
     this.view = {
       role,
@@ -104,6 +109,7 @@ export class NetRoom {
       seats: [],
       setup: null,
       localSeat: 0,
+      localPick: { ...pick },
       error: null,
       matchId: 0,
       sumsChecked: 0,
@@ -200,6 +206,33 @@ export class NetRoom {
       this.send(this.hostLink, { t: 'desync', m: matchId, frame: msg.frame });
       this.publish();
     }
+  }
+
+  /** Any player: choose a fighter and palette for the next match. */
+  setFighter(fighterId: string, paletteIndex: number): void {
+    const isKnownFighter = this.deps.roster.some((fighter) => fighter.id === fighterId);
+    if (!isKnownFighter) return;
+    const normalizedPalette = Math.max(0, Math.floor(paletteIndex)) % 4;
+    this.pick = { fighterId, paletteIndex: normalizedPalette };
+
+    if (this.view.role === 'host') {
+      this.broadcastRoster();
+      this.publish();
+      return;
+    }
+
+    if (this.hostLink) {
+      this.send(this.hostLink, { t: 'pick', fighterId, paletteIndex: normalizedPalette });
+    }
+    const setup = this.view.setup;
+    if (setup) {
+      const nextFighterIds = this.guestNextPicks ? [...this.guestNextPicks.fighterIds] : [...setup.fighterIds];
+      const nextPaletteIndices = this.guestNextPicks ? [...this.guestNextPicks.paletteIndices] : [...setup.paletteIndices];
+      nextFighterIds[this.view.localSeat] = fighterId;
+      nextPaletteIndices[this.view.localSeat] = normalizedPalette;
+      this.guestNextPicks = { fighterIds: nextFighterIds, paletteIndices: nextPaletteIndices };
+    }
+    this.publish();
   }
 
   /** Host: change room size (takes effect on the next match). */
@@ -326,7 +359,14 @@ export class NetRoom {
     }
     const g = this.guests.get(link.id);
     if (!g) return;
-    if (p.t === 'in' && p.m === matchId) {
+    if (p.t === 'pick') {
+      const isKnownFighter = this.deps.roster.some((fighter) => fighter.id === p.fighterId);
+      if (!isKnownFighter) return;
+      g.fighterId = p.fighterId;
+      g.paletteIndex = Math.max(0, Math.floor(p.paletteIndex)) % 4;
+      this.broadcastRoster();
+      this.publish();
+    } else if (p.t === 'in' && p.m === matchId) {
       this.view.traffic.remoteRecv += p.items.length;
       const items = p.items.filter(([seat]) => seat === g.seat);
       this.bridge?.sendNet({ type: 'NET_INPUTS', matchId, items });
@@ -411,10 +451,33 @@ export class NetRoom {
     return 1 + this.guests.size;
   }
 
+  private resolveHostNextPicks(setup: NetMatchSetup): { fighterIds: string[]; paletteIndices: number[] } {
+    const fighterIds = [...setup.fighterIds];
+    const paletteIndices = [...setup.paletteIndices];
+    if (fighterIds.length > 0) {
+      fighterIds[0] = this.pick.fighterId;
+      paletteIndices[0] = this.pick.paletteIndex;
+    }
+    for (const guest of this.guests.values()) {
+      const isValidSeat = guest.seat >= 0 && guest.seat < fighterIds.length;
+      if (!isValidSeat) continue;
+      fighterIds[guest.seat] = guest.fighterId;
+      paletteIndices[guest.seat] = guest.paletteIndex;
+    }
+    return { fighterIds, paletteIndices };
+  }
+
   private broadcastRoster(): void {
     const setup = this.view.setup;
     if (!setup) return;
-    this.broadcast({ t: 'roster', names: setup.names, controlTypes: setup.controlTypes });
+    const nextPicks = this.resolveHostNextPicks(setup);
+    this.broadcast({
+      t: 'roster',
+      names: setup.names,
+      controlTypes: setup.controlTypes,
+      nextFighterIds: nextPicks.fighterIds,
+      nextPaletteIndices: nextPicks.paletteIndices,
+    });
   }
 
   private reportToLobby(): void {
@@ -439,6 +502,7 @@ export class NetRoom {
         this.view.localSeat = p.seat;
         this.view.status = 'playing';
         this.view.error = null;
+        this.guestNextPicks = null;
         const sync = p.t === 'welcome' ? p.sync : undefined;
         this.lastStart = { setup: p.setup, sync, inputDelay: p.inputDelay };
         if (this.bridge) this.startLocal(p.setup, sync, p.inputDelay);
@@ -474,6 +538,13 @@ export class NetRoom {
         if (this.view.setup) {
           this.view.setup.names = p.names;
           this.view.setup.controlTypes = p.controlTypes;
+          const hasNextPicks = Array.isArray(p.nextFighterIds) && Array.isArray(p.nextPaletteIndices);
+          if (hasNextPicks) {
+            this.guestNextPicks = {
+              fighterIds: p.nextFighterIds!,
+              paletteIndices: p.nextPaletteIndices!,
+            };
+          }
           this.publish();
         }
         break;
@@ -535,17 +606,30 @@ export class NetRoom {
 
   private publish(): void {
     const setup = this.view.setup;
+    const nextPicks = setup
+      ? this.view.role === 'host'
+        ? this.resolveHostNextPicks(setup)
+        : this.guestNextPicks
+      : null;
+    this.view.localPick = { ...this.pick };
     this.view.seats = setup
       ? setup.fighterIds.map((fid, seat) => ({
           seat,
           fighterId: fid,
+          nextFighterId: nextPicks?.fighterIds[seat] ?? fid,
+          nextPaletteIndex: nextPicks?.paletteIndices[seat] ?? setup.paletteIndices[seat] ?? 0,
           name: setup.names[seat] || (setup.controlTypes[seat] === 'cpu' ? 'CPU' : `P${seat + 1}`),
           controlType: setup.controlTypes[seat],
           isYou: seat === this.view.localSeat,
           isRemote: setup.controlTypes[seat] === 'human' && seat !== this.view.localSeat,
         }))
       : [];
-    const snapshot = { ...this.view, seats: [...this.view.seats], traffic: { ...this.view.traffic } };
+    const snapshot = {
+      ...this.view,
+      localPick: { ...this.view.localPick },
+      seats: [...this.view.seats],
+      traffic: { ...this.view.traffic },
+    };
     // Read-only debug handle for support and automated tests.
     if (this.view.status !== 'closed' && typeof window !== 'undefined') {
       // Live (not snapshotted) so counters are current when read.
