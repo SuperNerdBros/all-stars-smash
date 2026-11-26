@@ -1,40 +1,41 @@
 import type { FighterBlueprint } from '../../types/fighter';
 import type { PalettePreset } from '../../types/palette';
 import { buildNesPalettes } from '../rpgSpriteBuilder';
-import { CRONO_DUAL_ERA, FROG_DUAL_ERA } from './chronoCronoFrog';
+import { CRONO_DUAL_ERA } from './cronoSprites';
+import { FROG_DUAL_ERA } from './chronoCronoFrog';
 import { MAGUS_DUAL_ERA, ROBO_DUAL_ERA } from './chronoRoboMagus';
 
 const SPIKY_TIME_PALETTES: PalettePreset[] = [
   {
     name: '1000 AD Hero',
     colors: [
-      '', '#0A0810', '#FFD2A6', '#F84818', '#B82808', '#2098B8', '#105878',
-      '#F8D028', '#FF9828', '#C04018', '#F8FAFA', '#94A3B8', '#E03810',
-      '#78F8D8', '#FEF08A', '#FFFFFF',
+      '', '#291821', '#FFCE9C', '#BD0039', '#5A0000', '#317373', '#083939',
+      '#FF8C00', '#FFB500', '#422139', '#FFFFFF', '#FF846B', '#ADAD73',
+      '#52D6EF', '#52FFBD', '#FEF08A',
     ],
   },
   {
     name: 'Rainbow Blade',
     colors: [
-      '', '#0A0D18', '#FFD2A6', '#F59E0B', '#B45309', '#4F46E5', '#312E81',
-      '#38BDF8', '#F472B6', '#581C87', '#E0F2FE', '#818CF8', '#EA580C',
-      '#F472B6', '#67E8F9', '#FFFFFF',
+      '', '#291821', '#FFCE9C', '#F59E0B', '#92400E', '#4F46E5', '#1E1B4B',
+      '#FDE047', '#F472B6', '#3B0764', '#FFFFFF', '#FF846B', '#C4B5FD',
+      '#818CF8', '#F472B6', '#67E8F9',
     ],
   },
   {
     name: 'Guardia Knight',
     colors: [
-      '', '#0A0D18', '#FFD2A6', '#16A34A', '#166534', '#E2E8F0', '#94A3B8',
-      '#FACC15', '#F97316', '#451A03', '#FDE047', '#CA8A04', '#B91C1C',
-      '#4ADE80', '#FEF08A', '#FFFFFF',
+      '', '#291821', '#FFCE9C', '#16A34A', '#14532D', '#94A3B8', '#334155',
+      '#4ADE80', '#FACC15', '#1E293B', '#FFFFFF', '#FF846B', '#FDE047',
+      '#E2E8F0', '#FDE047', '#FEF08A',
     ],
   },
   {
     name: 'Lavospawn Dark',
     colors: [
-      '', '#09090B', '#CBD5E1', '#A855F7', '#6B21A8', '#1E1B4B', '#0F172A',
-      '#F97316', '#EF4444', '#27272A', '#E2E8F0', '#64748B', '#F43F5E',
-      '#F97316', '#FDE047', '#FFFFFF',
+      '', '#18101C', '#E2E8F0', '#A855F7', '#581C87', '#334155', '#0F172A',
+      '#F43F5E', '#F97316', '#27272A', '#FFFFFF', '#94A3B8', '#CBD5E1',
+      '#F97316', '#F43F5E', '#FDE047',
     ],
   },
 ];
